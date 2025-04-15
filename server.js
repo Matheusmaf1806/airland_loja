@@ -1,4 +1,9 @@
 // server.js
+
+// Carrega as variáveis de ambiente localmente (certifique-se de ter instalado o dotenv)
+// Em produção (Vercel), essa linha não é necessária, pois as variáveis serão fornecidas pelo ambiente.
+require('dotenv').config();
+
 const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcrypt');
@@ -12,8 +17,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Configuração das sessões usando cookies com validade de 1 hora
+// ATENÇÃO: O MemoryStore utilizado aqui não é recomendado para produção em larga escala.
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'mySecret', // Defina a variável SESSION_SECRET nas variáveis de ambiente
+  secret: process.env.SESSION_SECRET || 'mySecret', // Defina a variável SESSION_SECRET no ambiente
   resave: false,
   saveUninitialized: false,
   cookie: { maxAge: 3600000 } // 1 hora em milissegundos
@@ -106,6 +112,7 @@ app.post('/login', async (req, res) => {
   }
 
   // Se o login for bem-sucedido, reseta as tentativas e cria a sessão do usuário
+  // (opcional: remova também eventuais propriedades antigas, como blockUntil)
   loginAttempts[email] = { count: 0 };
   req.session.user = {
     id: user.id,
