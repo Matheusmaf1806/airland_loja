@@ -22,9 +22,14 @@ app.use(session({
 // Usa o middleware para extrair o subdomínio (ou host) da requisição
 app.use(subdomainMiddleware);
 
-// Inicializa o cliente do Supabase
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
+// Inicializa o cliente do Supabase utilizando as variáveis do Vercel
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error('As variáveis NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY precisam estar definidas.');
+}
+
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Armazenamento em memória para tentativas de login (apenas para demonstração)
