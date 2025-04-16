@@ -45,6 +45,7 @@ const supabase = createClient(supabaseUrl, serviceRoleKey);
 let loginAttempts = {};
 
 // Endpoint para login
+// Endpoint para login
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   const subdomain = req.subdomain;
@@ -65,8 +66,8 @@ app.post('/api/login', async (req, res) => {
   
   const attemptKey = `${email}_${affiliate.id}`;
   const currentAttempt = loginAttempts[attemptKey] || { count: 0, lastAttempt: 0 };
-  
   const threeHours = 3 * 60 * 60 * 1000;
+  
   if (currentAttempt.count >= 5 && (Date.now() - currentAttempt.lastAttempt) < threeHours) {
     return res.status(429).json({ error: "Muitas tentativas falhas. Tente novamente mais tarde." });
   }
@@ -83,7 +84,12 @@ app.post('/api/login', async (req, res) => {
     return res.status(400).json({ error: "Email ou senha inválidos." });
   }
   
+  // Insira os logs aqui para debugar a comparação da senha
   const passwordMatch = await bcrypt.compare(password, user.password);
+  console.log("Senha digitada:", password);
+  console.log("Hash armazenado:", user.password);
+  console.log("passwordMatch:", passwordMatch);
+
   if (!passwordMatch) {
     loginAttempts[attemptKey] = { count: currentAttempt.count + 1, lastAttempt: Date.now() };
     return res.status(400).json({ error: "Email ou senha inválidos." });
