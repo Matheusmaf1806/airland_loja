@@ -1,5 +1,5 @@
 // assets/js/calendarComponent.js
-export function createCalendarComponent() {
+export default function createCalendarComponent() {
   const calendarEl = document.createElement("div");
   calendarEl.classList.add("calendar");
 
