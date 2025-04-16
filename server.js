@@ -1,9 +1,9 @@
 // server.js
-const express       = require('express');
-const path          = require('path');
-const cookieSession = require('cookie-session');
+const express         = require('express');
+const path            = require('path');
+const cookieSession   = require('cookie-session');
 const { createClient } = require('@supabase/supabase-js');
-const bcrypt        = require('bcrypt');
+const bcrypt          = require('bcrypt');
 
 const subdomainMiddleware = require('./middleware/subdomain');
 const authMiddleware     = require('./middleware/authMiddleware');
@@ -55,9 +55,7 @@ const supabase = createClient(supabaseUrl, serviceRoleKey);
 // Em memória: controle de tentativas de login
 let loginAttempts = {};
 
-// --- ENDPOINTS ---
-
-// POST /api/login
+// --- ENDPOINT: LOGIN ---
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   const subdomain = req.subdomain;
@@ -114,13 +112,13 @@ app.post('/api/login', async (req, res) => {
   return res.json({ success: true, redirect: '/agente/painel-vendas.html' });
 });
 
-// POST /api/logout
+// --- ENDPOINT: LOGOUT ---
 app.post('/api/logout', (req, res) => {
   req.session = null;
   return res.json({ success: true, redirect: '/agente/loginagente.html' });
 });
 
-// GET /api/gerar-hash (apenas para teste)
+// --- ENDPOINT: GERAR HASH (teste) ---
 app.get('/api/gerar-hash', async (req, res) => {
   try {
     const hash = await bcrypt.hash('Teste123!', 10);
@@ -128,6 +126,29 @@ app.get('/api/gerar-hash', async (req, res) => {
   } catch (err) {
     console.error('Erro ao gerar hash:', err);
     return res.status(500).json({ error: 'Erro ao gerar hash' });
+  }
+});
+
+// --- ENDPOINT: BUSCA DE PEDIDOS ---
+app.get('/api/agent/pedidos', async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: 'Parâmetros startDate e endDate são obrigatórios.' });
+    }
+
+    const { data, error } = await supabase
+      .from('supplier_pedidos')
+      .select('*')
+      .gte('data_venda', startDate)
+      .lte('data_venda', endDate)
+      .order('data_venda', { ascending: false });
+
+    if (error) throw error;
+    return res.json(data);
+  } catch (err) {
+    console.error('Erro ao buscar pedidos:', err);
+    return res.status(500).json({ error: err.message });
   }
 });
 
