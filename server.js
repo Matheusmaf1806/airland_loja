@@ -13,7 +13,7 @@ const app = express();
 // 1) Sessão via cookie (1h de vida)
 app.use(cookieSession({
   name: 'session',
-  secret: process.env.SUPABASE_JWT_SECRET,
+  secret: process.env.NEXT_PUBLIC_SESSION_SECRET,
   maxAge: 60 * 60 * 1000,
   httpOnly: true,
   secure:   process.env.NODE_ENV === 'production',
