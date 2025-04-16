@@ -7,7 +7,7 @@
     });
     if (!res.ok) throw new Error('Não foi possível obter perfil');
     const user = await res.json();
-    // user.primeiro_nome, user.ultimo_nome, user.email, user.fotodeperfil
+    // user.primeiro_nome, user.ultimo_nome, user.email, user.fotodeperfil, user.logo_url
 
     // 1) Perfil no header e dropdown
     document.querySelectorAll('.profile-box .profile-image')
@@ -43,6 +43,19 @@
     // 3) Nome no promo‑box
     const promoName = document.querySelector('.promo-box h3');
     if (promoName) promoName.textContent = user.primeiro_nome;
+
+    // 4) Logo da sidebar (navbar-logo)
+    const sidebarLogo = document.querySelector('.navbar-logo img');
+    if (sidebarLogo) {
+      sidebarLogo.src = user.logo_url;
+      Object.assign(sidebarLogo.style, {
+        width:           '75px',
+        height:          '75px',
+        display:         'block',
+        margin:          '0px auto',
+        objectFit:       'cover'
+      });
+    }
 
   } catch (err) {
     console.error('Erro ao carregar perfil do usuário:', err);
