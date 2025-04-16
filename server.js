@@ -117,3 +117,15 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
+
+// Endpoint temporário para gerar hash para "Teste123!"
+app.get('/api/gerar-hash', async (req, res) => {
+  const senha = "Teste123!";
+  try {
+    const hash = await bcrypt.hash(senha, 10);
+    return res.json({ hash });
+  } catch (err) {
+    console.error("Erro ao gerar hash:", err);
+    return res.status(500).json({ error: "Erro ao gerar hash" });
+  }
+});
