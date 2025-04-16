@@ -83,7 +83,7 @@ app.post('/api/login', async (req, res) => {
     return res.status(400).json({ error: "Email ou senha inválidos." });
   }
   
-  // Logs para depuração da comparação de senha
+  // Logs para depuração da comparação da senha
   const passwordMatch = await bcrypt.compare(password, user.password);
   console.log("Senha digitada:", password);
   console.log("Hash armazenado:", user.password);
@@ -112,9 +112,7 @@ app.post('/api/logout', (req, res) => {
   return res.json({ success: true, redirect: '/loginagente.html' });
 });
 
-// =====================
 // Endpoint temporário para gerar hash para "Teste123!"
-// Remova este endpoint depois de obter o hash.
 app.get('/api/gerar-hash', async (req, res) => {
   const senha = "Teste123!";
   try {
@@ -125,8 +123,8 @@ app.get('/api/gerar-hash', async (req, res) => {
     return res.status(500).json({ error: "Erro ao gerar hash" });
   }
 });
-// =====================
 
+// Define a porta e inicia o servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
