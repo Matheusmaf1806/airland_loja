@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -533,13 +534,14 @@
       },
       markerLabelStyle: { initial: { fontWeight: 400, fontSize: 14 } },
     });
-
+  
     /**********************************
      * 2. Inicialização dos Gráficos (Chart.js)
      **********************************/
+    let chart3, chart4;
     const ctx3 = document.getElementById("Chart3")?.getContext("2d");
     if (ctx3) {
-      var chart3 = new Chart(ctx3, {
+      chart3 = new Chart(ctx3, {
         type: "line",
         data: {
           labels: ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"],
@@ -578,10 +580,10 @@
         options: {}
       });
     }
-
+  
     const ctx4 = document.getElementById("Chart4")?.getContext("2d");
     if (ctx4) {
-      var chart4 = new Chart(ctx4, {
+      chart4 = new Chart(ctx4, {
         type: "bar",
         data: {
           labels: ["Jan","Fev","Mar","Abr","Mai","Jun"],
@@ -600,7 +602,7 @@
         options: {}
       });
     }
-
+  
     /**********************************
      * 3. Lógica do Tema (Light/Dark)
      **********************************/
@@ -619,107 +621,131 @@
     document.querySelector(".darkThemeButton")?.addEventListener("click", () => applyTheme(darkTheme));
     document.querySelector(".lightThemeButton")?.addEventListener("click", () => applyTheme(lightTheme));
     applyTheme(localStorage.getItem("theme")==="dark" ? darkTheme : lightTheme);
-
+  
     /**********************************
      * 4. Calendário + Filtro Dinâmico
      **********************************/
-    // botão e label
-    const btnOpen = document.getElementById("openCalendarBtn");
-    const selDates = document.getElementById("selectedDates");
+    const btnOpen    = document.getElementById("openCalendarBtn");
+    const selDates   = document.getElementById("selectedDates");
     btnOpen.style.marginBottom = "20px";
-    selDates.style.display = "none";
-
-    // cria e anexa
+    selDates.style.display     = "none";
+  
     const calEl = createCalendarComponent();
     calEl.style.position = "absolute";
-    calEl.style.display = "none";
-    calEl.style.zIndex = "1000";
+    calEl.style.display  = "none";
+    calEl.style.zIndex   = "1000";
     document.body.appendChild(calEl);
-
-    // posiciona tooltip
+  
     function positionCal() {
       const r = btnOpen.getBoundingClientRect();
       calEl.style.top  = r.bottom + window.scrollY + "px";
       calEl.style.left = r.left   + window.scrollX + "px";
       requestAnimationFrame(() => {
         const cr = calEl.getBoundingClientRect();
-        if (cr.right  > window.innerWidth)  calEl.style.left = (parseFloat(calEl.style.left) - (cr.right - window.innerWidth) - 10) + "px";
-        if (cr.bottom > window.innerHeight) calEl.style.top  = (parseFloat(calEl.style.top ) - (cr.bottom - window.innerHeight) - 10) + "px";
+        if (cr.right  > window.innerWidth)  calEl.style.left = `${parseFloat(calEl.style.left) - (cr.right - window.innerWidth) - 10}px`;
+        if (cr.bottom > window.innerHeight) calEl.style.top  = `${parseFloat(calEl.style.top ) - (cr.bottom - window.innerHeight) - 10}px`;
       });
     }
-    btnOpen.addEventListener("mouseenter", ()=>{ positionCal(); calEl.style.display="block"; });
-    btnOpen.addEventListener("mouseleave", ()=> setTimeout(()=>{ if(!calEl.matches(":hover")) calEl.style.display="none"; },200));
-    calEl.addEventListener("mouseleave", ()=> calEl.style.display="none");
-
-    // função de filtro (implemente seu fetch/API etc. aqui)
-    function filterDataByDate(startDate, endDate) {
-      console.log("Filtrando dados de", startDate, "até", endDate);
-      // ex: chamar API passando startDate e endDate
-    }
-
-    // captura a confirmação e extrai datas
-    const btnApply = calEl.querySelector(".calendar__button--primary");
-    btnApply.addEventListener("click", () => {
-      const all = Array.from(calEl.querySelectorAll(".calendar__date--selected"));
-      if (!all.length) return calEl.style.display="none";
-
-      // pega o primeiro e último
-      const firstCell = all[0], lastCell = all[all.length-1];
-      const day1 = parseInt(firstCell.textContent, 10);
-      const day2 = parseInt(lastCell .textContent, 10);
-      const year  = +calEl.querySelector("#calendar__year") .value;
-      const month = +calEl.querySelector("#calendar__month").value; // 0–11
-
-      const startDate = new Date(year, month, day1);
-      const endDate   = new Date(year, month, day2);
-      // formata dd/mm/yyyy
-      const fmt = d => String(d.getDate()).padStart(2,"0") + "/" +
-                      String(d.getMonth()+1).padStart(2,"0") + "/" +
-                      d.getFullYear();
-      selDates.textContent = fmt(startDate) + " - " + fmt(endDate);
-      selDates.style.display = "inline";
-
-      filterDataByDate(startDate, endDate);
-      calEl.style.display = "none";
-    });
-
+  
+    btnOpen.addEventListener("mouseenter", () => { positionCal(); calEl.style.display = "block"; });
+    btnOpen.addEventListener("mouseleave", () =>
+      setTimeout(() => { if(!calEl.matches(":hover")) calEl.style.display = "none"; }, 200)
+    );
+    calEl.addEventListener("mouseleave", () => calEl.style.display = "none");
+  
     /**********************************
-     * 5. Paginação de Pedidos Recentes
+     * 5. Paginação e Renderização de Pedidos
      **********************************/
-    const pedidosData = []; // coloque aqui sua chamada real
-    let currentPage = 1, perPage = 15;
-    const bodyPed = document.getElementById("pedidosBody"),
-          btnPrev  = document.getElementById("prevPageBtn"),
-          btnNext  = document.getElementById("nextPageBtn"),
-          infoPag  = document.getElementById("paginationInfo");
-
-    function renderPedidos(page=1) {
+    let pedidosData  = [];
+    let currentPage  = 1;
+    const perPage    = 15;
+    const bodyPed    = document.getElementById("pedidosBody");
+    const btnPrev    = document.getElementById("prevPageBtn");
+    const btnNext    = document.getElementById("nextPageBtn");
+    const infoPag    = document.getElementById("paginationInfo");
+  
+    function renderPedidos(page = 1) {
       bodyPed.innerHTML = "";
-      const slice = pedidosData.slice((page-1)*perPage, page*perPage);
+      const slice = pedidosData.slice((page - 1) * perPage, page * perPage);
       if (!slice.length) {
-        bodyPed.innerHTML = `<tr><td>0</td><td>0</td><td>R$ 0</td><td class="text-end">0</td></tr>`;
+        bodyPed.innerHTML = `<tr><td colspan="4" class="text-center">Nenhum pedido encontrado.</td></tr>`;
       } else {
         slice.forEach(p => {
           const tr = document.createElement("tr");
           tr.innerHTML = `
-            <td><div class="d-flex align-items-center">
-                  <div class="icon default-bg me-2"><i class="lni lni-user"></i></div>
-                  <span class="text-sm fw-500 text-gray">${p.cliente}</span>
-                </div></td>
-            <td><p class="text-sm fw-500 text-gray">${p.vendedor}</p></td>
-            <td><p class="text-sm fw-500 text-gray">R$ ${p.valor}</p></td>
-            <td class="text-end"><span class="status-btn">${p.status}</span></td>`;
+            <td>${p.nome_comprador}</td>
+            <td>${p.efetivado_por}</td>
+            <td>R$ ${parseFloat(p.valor_venda).toFixed(2)}</td>
+            <td class="text-end">${p.status}</td>
+          `;
           bodyPed.appendChild(tr);
         });
       }
-      const totalPages = Math.ceil(pedidosData.length / perPage);
+      const totalPages = Math.max(1, Math.ceil(pedidosData.length / perPage));
       infoPag.textContent = `Página ${page} de ${totalPages} (${pedidosData.length} registros)`;
-      btnPrev.disabled = page<=1;
-      btnNext.disabled = page>=totalPages;
+      btnPrev.disabled = page <= 1;
+      btnNext.disabled = page >= totalPages;
     }
-    btnPrev.addEventListener("click", ()=>{ if(currentPage>1) renderPedidos(--currentPage); });
-    btnNext.addEventListener("click", ()=>{ if(currentPage<Math.ceil(pedidosData.length/perPage)) renderPedidos(++currentPage); });
-    renderPedidos(currentPage);
-  </script>
+  
+    btnPrev.addEventListener("click", () => {
+      if (currentPage > 1) renderPedidos(--currentPage);
+    });
+    btnNext.addEventListener("click", () => {
+      const totalPages = Math.ceil(pedidosData.length / perPage);
+      if (currentPage < totalPages) renderPedidos(++currentPage);
+    });
+  
+    function filterDataByDate(startDate, endDate) {
+      const start = startDate.toISOString().split("T")[0];
+      const end   = endDate.toISOString().split("T")[0];
+      fetch(`/api/agent/pedidos?startDate=${start}&endDate=${end}`)
+        .then(res => res.json())
+        .then(data => {
+          // Atualiza Métricas
+          document.getElementById("clientCount").textContent = data.length;
+          const faturamento = data.reduce((sum, p) => sum + parseFloat(p.valor_venda), 0);
+          document.getElementById("faturamento").textContent = faturamento.toFixed(2);
+          // (adicione lógica para receita e takeRate aqui)
+  
+          // Atualiza lista de pedidos
+          pedidosData = data;
+          currentPage = 1;
+          renderPedidos();
+        })
+        .catch(err => console.error("Erro ao buscar pedidos:", err));
+    }
+  
+    // Botão "Aplicar" do calendário
+    const btnApply = calEl.querySelector(".calendar__button--primary");
+    btnApply.addEventListener("click", () => {
+      const selected = Array.from(calEl.querySelectorAll(".calendar__date--selected"));
+      if (!selected.length) return calEl.style.display = "none";
+  
+      const first = selected[0], last = selected[selected.length - 1];
+      const day1 = +first.textContent, day2 = +last.textContent;
+      const year = +calEl.querySelector("#calendar__year").value;
+      const month = +calEl.querySelector("#calendar__month").value;
+  
+      const s = new Date(year, month, day1);
+      const e = new Date(year, month, day2);
+      const fmt = d => `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;
+      selDates.textContent = `${fmt(s)} - ${fmt(e)}`;
+      selDates.style.display = "inline";
+  
+      filterDataByDate(s, e);
+      calEl.style.display = "none";
+    });
+  
+    // Carregamento inicial: mês corrente
+    (function init() {
+      const hoje = new Date();
+      const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      const fimMes    = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+      const fmt = d => `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;
+      selDates.textContent = `${fmt(inicioMes)} - ${fmt(fimMes)}`;
+      selDates.style.display = "inline";
+      filterDataByDate(inicioMes, fimMes);
+    })();
+  </script>  
 </body>
 </html>
