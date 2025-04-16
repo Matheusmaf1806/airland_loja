@@ -1,9 +1,9 @@
 // server.js
-const express         = require('express');
-const path            = require('path');
-const cookieSession   = require('cookie-session');
+const express          = require('express');
+const path             = require('path');
+const cookieSession    = require('cookie-session');
 const { createClient } = require('@supabase/supabase-js');
-const bcrypt          = require('bcrypt');
+const bcrypt           = require('bcrypt');
 
 const subdomainMiddleware = require('./middleware/subdomain');
 const authMiddleware     = require('./middleware/authMiddleware');
@@ -12,11 +12,11 @@ const app = express();
 
 // 1) Sessão via cookie (1h de vida)
 app.use(cookieSession({
-  name: 'session',
-  secret: process.env.SESSION_SECRET,
-  maxAge: 60 * 60 * 1000,
-  httpOnly: true,
-  sameSite: 'lax',
+  name:       'session',
+  secret:     process.env.SESSION_SECRET,
+  maxAge:     60 * 60 * 1000, // 1 hora
+  httpOnly:   true,
+  sameSite:   'lax',
 }));
 
 // 2) Body parsers
@@ -31,10 +31,10 @@ app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
 // 5) Rota pública de login
 app.get('/agente/loginagente.html', (req, res) => {
-  return res.sendFile(path.join(__dirname, 'agente', 'loginagente.html'));
+  res.sendFile(path.join(__dirname, 'agente', 'loginagente.html'));
 });
 
-// 6) Protege /agente (exceto o login acima)
+// 6) Protege todas as rotas em /agente (exceto o login acima)
 app.use(
   '/agente',
   authMiddleware,
@@ -57,25 +57,66 @@ let loginAttempts = {};
 
 /**
  * GET /api/me
- * Retorna os dados do usuário logado na sessão
+ * Retorna dados do usuário logado *e* do afiliado (logo_url) para popular o perfil
  */
 app.get('/api/me', authMiddleware, async (req, res) => {
-  // Se você já salvou todos os campos no req.session.user:
-  if (req.session.user.primeiro_nome && req.session.user.fotodeperfil) {
-    return res.json(req.session.user);
-  }
-  // Caso você tenha só o ID, busque no Supabase:
   try {
-    const { data: user, error } = await supabase
+    const sessionUser = req.session.user;
+    // já temos tudo salvo na sessão?
+    if (sessionUser.primeiro_nome && sessionUser.fotodeperfil && sessionUser.affiliate_id) {
+      // busca também o logo do afiliado
+      const { data: aff, error: affErr } = await supabase
+        .from('affiliates')
+        .select('logo_url')
+        .eq('id', sessionUser.affiliate_id)
+        .single();
+      if (affErr) throw affErr;
+
+      return res.json({
+        primeiro_nome: sessionUser.primeiro_nome,
+        ultimo_nome:   sessionUser.ultimo_nome,
+        email:         sessionUser.email,
+        fotodeperfil:  sessionUser.fotodeperfil,
+        logo_url:      aff.logo_url
+      });
+    }
+
+    // caso contrário, refazemos a consulta ao Supabase
+    const { data: user, error: userErr } = await supabase
       .from('user_affiliates')
-      .select('primeiro_nome, ultimo_nome, email, fotodeperfil')
+      .select('primeiro_nome, ultimo_nome, email, fotodeperfil, affiliate_id')
       .eq('id', req.session.user.id)
       .single();
-    if (error) throw error;
-    return res.json(user);
+    if (userErr) throw userErr;
+
+    const { data: aff2, error: aff2Err } = await supabase
+      .from('affiliates')
+      .select('logo_url')
+      .eq('id', user.affiliate_id)
+      .single();
+    if (aff2Err) throw aff2Err;
+
+    // atualiza sessão para próximas requisições
+    req.session.user = {
+      ...req.session.user,
+      primeiro_nome: user.primeiro_nome,
+      ultimo_nome:   user.ultimo_nome,
+      email:         user.email,
+      fotodeperfil:  user.fotodeperfil,
+      affiliate_id:  user.affiliate_id
+    };
+
+    res.json({
+      primeiro_nome: user.primeiro_nome,
+      ultimo_nome:   user.ultimo_nome,
+      email:         user.email,
+      fotodeperfil:  user.fotodeperfil,
+      logo_url:      aff2.logo_url
+    });
+
   } catch (err) {
-    console.error('Erro ao carregar perfil:', err);
-    return res.status(500).json({ error: 'Não foi possível obter perfil' });
+    console.error('Erro em GET /api/me:', err);
+    res.status(500).json({ error: 'Não foi possível obter perfil' });
   }
 });
 
@@ -90,7 +131,7 @@ app.post('/api/login', async (req, res) => {
   // Busca afiliado
   const { data: affiliate, error: affErr } = await supabase
     .from('affiliates')
-    .select('*')
+    .select('id')
     .or(`subdomain.eq.${subdomain},subdomain.eq.${subdomain}.airland.com.br`)
     .single();
   if (affErr || !affiliate) {
@@ -108,7 +149,7 @@ app.post('/api/login', async (req, res) => {
   // Busca usuário
   const { data: user, error: usrErr } = await supabase
     .from('user_affiliates')
-    .select('*')
+    .select('id, primeiro_nome, ultimo_nome, email, password, fotodeperfil')
     .eq('email', email)
     .eq('affiliate_id', affiliate.id)
     .single();
@@ -124,9 +165,8 @@ app.post('/api/login', async (req, res) => {
     return res.status(400).json({ error: 'Email ou senha inválidos.' });
   }
 
-  // Autenticação OK
+  // Autenticação OK: zera contador e salva campos na sessão
   loginAttempts[key] = { count: 0, lastAttempt: Date.now() };
-  // Salve no session todos os campos que vai usar no front
   req.session.user = {
     id:             user.id,
     email:          user.email,
@@ -136,28 +176,28 @@ app.post('/api/login', async (req, res) => {
     fotodeperfil:   user.fotodeperfil
   };
 
-  return res.json({ success: true, redirect: '/agente/painel-vendas.html' });
+  res.json({ success: true, redirect: '/agente/painel-vendas.html' });
 });
 
 // --- POST /api/logout ---
 app.post('/api/logout', (req, res) => {
   req.session = null;
-  return res.json({ success: true, redirect: '/agente/loginagente.html' });
+  res.json({ success: true, redirect: '/agente/loginagente.html' });
 });
 
 // --- GET /api/gerar-hash (teste) ---
 app.get('/api/gerar-hash', async (req, res) => {
   try {
     const hash = await bcrypt.hash('Teste123!', 10);
-    return res.json({ hash });
+    res.json({ hash });
   } catch (err) {
     console.error('Erro ao gerar hash:', err);
-    return res.status(500).json({ error: 'Erro ao gerar hash' });
+    res.status(500).json({ error: 'Erro ao gerar hash' });
   }
 });
 
 // --- GET /api/agent/pedidos ---
-// Retorna apenas os pedidos do affiliate_id logado, filtrados por data_venda
+// Filtra por data_venda e só retorna do affiliate logado
 app.get('/api/agent/pedidos', authMiddleware, async (req, res) => {
   try {
     const user = req.session.user;
@@ -167,7 +207,7 @@ app.get('/api/agent/pedidos', authMiddleware, async (req, res) => {
 
     const { startDate, endDate } = req.query;
     if (!startDate || !endDate) {
-      return res.status(400).json({ error: 'Parâmetros startDate e endDate são obrigatórios.' });
+      return res.status(400).json({ error: 'startDate e endDate são obrigatórios.' });
     }
 
     const { data, error } = await supabase
@@ -179,10 +219,10 @@ app.get('/api/agent/pedidos', authMiddleware, async (req, res) => {
       .order('data_venda', { ascending: false });
 
     if (error) throw error;
-    return res.json(data);
+    res.json(data);
   } catch (err) {
-    console.error('Erro ao buscar pedidos:', err);
-    return res.status(500).json({ error: err.message });
+    console.error('Erro em GET /api/agent/pedidos:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
