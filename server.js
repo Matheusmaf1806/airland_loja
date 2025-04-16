@@ -8,7 +8,6 @@ const bcrypt = require('bcrypt');
 // Middleware para extrair o subdomínio da requisição
 const subdomainMiddleware = require('./middleware/subdomain');
 // Middleware para proteger as rotas (verifica se o usuário está logado)
-// Certifique-se de criar o arquivo middleware/authMiddleware.js conforme instruções.
 const authMiddleware = require('./middleware/authMiddleware');
 
 const app = express();
@@ -107,6 +106,12 @@ app.post('/api/login', async (req, res) => {
   
   // Responde informando sucesso e o redirecionamento para a área protegida (neste exemplo, /agente/painel-vendas.html)
   return res.json({ success: true, redirect: "/agente/painel-vendas.html" });
+});
+
+// Endpoint para logout
+app.post('/api/logout', (req, res) => {
+  req.session = null; // Limpa a sessão
+  return res.json({ success: true, redirect: '/loginagente.html' });
 });
 
 // Define a porta (para desenvolvimento local use 3000; no Vercel, a porta é definida automaticamente)
