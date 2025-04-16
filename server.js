@@ -23,28 +23,28 @@ app.use(cookieSession({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 3) White‑label por subdomínio (se usar)
+// 3) White‑label por subdomínio
 app.use(subdomainMiddleware);
 
-// 4) Arquivos públicos não-sensiveis (CSS, JS, imagens)
+// 4) Assets públicos
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
-// 5) Rota pública de login (antes do authMiddleware!)
+// 5) Rota pública de login
 app.get('/agente/loginagente.html', (req, res) => {
   return res.sendFile(path.join(__dirname, 'agente', 'loginagente.html'));
 });
 
-// 6) Protege tudo que vier em /agente **exceto** o login acima
+// 6) Protege /agente (exceto o login acima)
 app.use(
   '/agente',
-  authMiddleware,                                  // só continua se estiver logado
-  express.static(path.join(__dirname, 'agente'))   // então serve painel, etc.
+  authMiddleware,
+  express.static(path.join(__dirname, 'agente'))
 );
 
-// 7) Demais estáticos públicos (home, marketing, outras páginas fora de /agente)
+// 7) Outras páginas públicas
 app.use(express.static(path.join(__dirname)));
 
-// 8) Inicializa cliente Supabase
+// 8) Inicializa Supabase
 const supabaseUrl    = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!supabaseUrl || !serviceRoleKey) {
@@ -55,13 +55,11 @@ const supabase = createClient(supabaseUrl, serviceRoleKey);
 // Em memória: controle de tentativas de login
 let loginAttempts = {};
 
-// --- ENDPOINT: LOGIN ---
+// --- POST /api/login ---
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   const subdomain = req.subdomain;
-  if (!subdomain) {
-    return res.status(400).json({ error: 'Subdomínio não identificado.' });
-  }
+  if (!subdomain) return res.status(400).json({ error: 'Subdomínio não identificado.' });
 
   // Busca afiliado
   const { data: affiliate, error: affErr } = await supabase
@@ -112,13 +110,13 @@ app.post('/api/login', async (req, res) => {
   return res.json({ success: true, redirect: '/agente/painel-vendas.html' });
 });
 
-// --- ENDPOINT: LOGOUT ---
+// --- POST /api/logout ---
 app.post('/api/logout', (req, res) => {
   req.session = null;
   return res.json({ success: true, redirect: '/agente/loginagente.html' });
 });
 
-// --- ENDPOINT: GERAR HASH (teste) ---
+// --- GET /api/gerar-hash (teste) ---
 app.get('/api/gerar-hash', async (req, res) => {
   try {
     const hash = await bcrypt.hash('Teste123!', 10);
@@ -129,9 +127,16 @@ app.get('/api/gerar-hash', async (req, res) => {
   }
 });
 
-// --- ENDPOINT: BUSCA DE PEDIDOS ---
+// --- GET /api/agent/pedidos ---
+// Retorna apenas os pedidos do affiliate_id logado, filtrados por data_venda
 app.get('/api/agent/pedidos', async (req, res) => {
   try {
+    // Verifica sessão
+    const user = req.session.user;
+    if (!user || !user.affiliate_id) {
+      return res.status(401).json({ error: 'Não autorizado.' });
+    }
+
     const { startDate, endDate } = req.query;
     if (!startDate || !endDate) {
       return res.status(400).json({ error: 'Parâmetros startDate e endDate são obrigatórios.' });
@@ -140,8 +145,9 @@ app.get('/api/agent/pedidos', async (req, res) => {
     const { data, error } = await supabase
       .from('supplier_pedidos')
       .select('*')
-      .gte('data_venda', startDate)
-      .lte('data_venda', endDate)
+      .eq('affiliate_id', user.affiliate_id)      // somente da white‑label atual
+      .gte('data_venda', startDate)               // filtro por data inicial
+      .lte('data_venda', endDate)                 // filtro por data final
       .order('data_venda', { ascending: false });
 
     if (error) throw error;
