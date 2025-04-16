@@ -14,7 +14,7 @@ module.exports = function authMiddleware(req, res, next) {
       return res.status(401).json({ error: 'Sessão expirada. Faça login novamente.' });
     }
     // Navegação normal: redireciona ao login
-    return res.redirect('/loginagente.html');
+    return res.redirect('/agente/loginagente.html');
   }
   // Sessão válida: segue adiante
   next();
