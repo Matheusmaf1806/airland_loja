@@ -16,7 +16,7 @@ const app = express();
 // Utilize uma variável de ambiente adequada para a chave, como SUPABASE_JWT_SECRET
 app.use(cookieSession({
   name: 'session',
-  secret: process.env.SUPABASE_JWT_SECRET, // ou process.env.SESSION_SECRET se preferir uma variável separada
+  secret: process.env.SUPABASE_JWT_SECRET, // ou use process.env.SESSION_SECRET se preferir uma variável separada
   maxAge: 60 * 60 * 1000, // 1 hora
 }));
 
@@ -26,6 +26,9 @@ app.use(express.urlencoded({ extended: true }));
 
 // Aplica o middleware para extrair o subdomínio da requisição
 app.use(subdomainMiddleware);
+
+// (Opcional para depuração) Verifique o caminho absoluto da pasta assets
+console.log("Assets folder path: ", path.join(__dirname, 'assets'));
 
 // Monta explicitamente a pasta "assets" para servir arquivos estáticos
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
