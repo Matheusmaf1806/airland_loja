@@ -13,14 +13,14 @@ const authMiddleware = require('./middleware/authMiddleware');
 const app = express();
 
 // Configuração do cookie de sessão (expira em 1 hora)
-// Utilize uma variável de ambiente adequada (aqui estamos usando SUPABASE_JWT_SECRET)
-// para garantir uma chave forte; porém, recomenda-se idealmente ter uma variável específica para a sessão.
+// Utilize uma variável de ambiente adequada para a chave, como SUPABASE_JWT_SECRET
 app.use(cookieSession({
   name: 'session',
-  secret: process.env.SUPABASE_JWT_SECRET, // ou use process.env.SESSION_SECRET se preferir uma variável separada
+  secret: process.env.SUPABASE_JWT_SECRET, // ou process.env.SESSION_SECRET se preferir uma variável separada
   maxAge: 60 * 60 * 1000, // 1 hora
 }));
 
+// Permite o parsing de JSON e de dados codificados em URL
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -33,19 +33,18 @@ app.use('/assets', express.static(path.join(__dirname, 'assets')));
 // Serve os arquivos estáticos da raiz (HTML, etc.)
 app.use(express.static(path.join(__dirname)));
 
-// Protege as rotas da área "agente" para que somente usuários autenticados possam acessá-las.
-// Os arquivos protegidos devem estar na pasta "agente" (por exemplo, agente/painel-vendas.html, agente/pedidos.html etc.)
+// Protege as rotas da área "agente": somente usuários autenticados podem acessá-las.
 app.use('/agente', authMiddleware, express.static(path.join(__dirname, 'agente')));
 
-// Inicializa o cliente do Supabase utilizando as variáveis de ambiente configuradas (no Vercel ou localmente)
+// Inicializa o cliente do Supabase utilizando as variáveis de ambiente configuradas
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-// Objeto para controlar as tentativas de login (armazenado em memória – para produção, use uma solução persistente)
+// Objeto para controlar as tentativas de login (em memória)
 let loginAttempts = {};
 
-// Endpoint para o login
+// Endpoint para login
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   const subdomain = req.subdomain;
@@ -54,7 +53,7 @@ app.post('/api/login', async (req, res) => {
     return res.status(400).json({ error: "Subdomínio não identificado." });
   }
   
-  // Busca o afiliado na tabela 'affiliates' com base no subdomínio extraído
+  // Busca o afiliado na tabela "affiliates" com base no subdomínio extraído
   const { data: affiliate, error: affiliateError } = await supabase
     .from('affiliates')
     .select('*')
@@ -69,13 +68,13 @@ app.post('/api/login', async (req, res) => {
   const attemptKey = `${email}_${affiliate.id}`;
   const currentAttempt = loginAttempts[attemptKey] || { count: 0, lastAttempt: 0 };
   
-  // Verifica se há 5 ou mais tentativas falhas e se não se passaram 3 horas desde a última tentativa
+  // Se já houver 5 ou mais tentativas e não tiver passado 3 horas, bloqueia o login
   const threeHours = 3 * 60 * 60 * 1000;
   if (currentAttempt.count >= 5 && (Date.now() - currentAttempt.lastAttempt) < threeHours) {
     return res.status(429).json({ error: "Muitas tentativas falhas. Tente novamente mais tarde." });
   }
   
-  // Busca o usuário na tabela 'user_affiliates' filtrando por email e affiliate_id
+  // Busca o usuário na tabela "user_affiliates" filtrando por email e affiliate_id
   const { data: user, error: userError } = await supabase
     .from('user_affiliates')
     .select('*')
@@ -84,7 +83,7 @@ app.post('/api/login', async (req, res) => {
     .single();
   
   if (userError || !user) {
-    // Incrementa a contagem de tentativas falhas
+    // Incrementa as tentativas em caso de erro
     loginAttempts[attemptKey] = { count: currentAttempt.count + 1, lastAttempt: Date.now() };
     return res.status(400).json({ error: "Email ou senha inválidos." });
   }
@@ -96,10 +95,10 @@ app.post('/api/login', async (req, res) => {
     return res.status(400).json({ error: "Email ou senha inválidos." });
   }
   
-  // Login efetuado com sucesso – reseta as tentativas para este usuário
+  // Login efetuado com sucesso: reseta as tentativas para este usuário
   loginAttempts[attemptKey] = { count: 0, lastAttempt: Date.now() };
   
-  // Cria a sessão do usuário (armazenando informações úteis para posteriores verificações)
+  // Cria a sessão do usuário
   req.session.user = {
     id: user.id,
     email: user.email,
@@ -107,7 +106,7 @@ app.post('/api/login', async (req, res) => {
     nome: user.primeiro_nome + " " + user.ultimo_nome,
   };
   
-  // Responde informando sucesso e o redirecionamento para a área protegida (neste exemplo, /agente/painel-vendas.html)
+  // Responde com sucesso e instrui o redirecionamento para a área protegida
   return res.json({ success: true, redirect: "/agente/painel-vendas.html" });
 });
 
@@ -117,7 +116,7 @@ app.post('/api/logout', (req, res) => {
   return res.json({ success: true, redirect: '/loginagente.html' });
 });
 
-// Define a porta (para desenvolvimento local use 3000; no Vercel, a porta é definida automaticamente)
+// Define a porta e inicia o servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
