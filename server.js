@@ -45,7 +45,6 @@ const supabase = createClient(supabaseUrl, serviceRoleKey);
 let loginAttempts = {};
 
 // Endpoint para login
-// Endpoint para login
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   const subdomain = req.subdomain;
@@ -84,7 +83,7 @@ app.post('/api/login', async (req, res) => {
     return res.status(400).json({ error: "Email ou senha inválidos." });
   }
   
-  // Insira os logs aqui para debugar a comparação da senha
+  // Logs para depuração da comparação de senha
   const passwordMatch = await bcrypt.compare(password, user.password);
   console.log("Senha digitada:", password);
   console.log("Hash armazenado:", user.password);
@@ -113,12 +112,9 @@ app.post('/api/logout', (req, res) => {
   return res.json({ success: true, redirect: '/loginagente.html' });
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
-});
-
+// =====================
 // Endpoint temporário para gerar hash para "Teste123!"
+// Remova este endpoint depois de obter o hash.
 app.get('/api/gerar-hash', async (req, res) => {
   const senha = "Teste123!";
   try {
@@ -128,4 +124,10 @@ app.get('/api/gerar-hash', async (req, res) => {
     console.error("Erro ao gerar hash:", err);
     return res.status(500).json({ error: "Erro ao gerar hash" });
   }
+});
+// =====================
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
 });
