@@ -55,11 +55,37 @@ const supabase = createClient(supabaseUrl, serviceRoleKey);
 // Em memória: controle de tentativas de login
 let loginAttempts = {};
 
+/**
+ * GET /api/me
+ * Retorna os dados do usuário logado na sessão
+ */
+app.get('/api/me', authMiddleware, async (req, res) => {
+  // Se você já salvou todos os campos no req.session.user:
+  if (req.session.user.primeiro_nome && req.session.user.fotodeperfil) {
+    return res.json(req.session.user);
+  }
+  // Caso você tenha só o ID, busque no Supabase:
+  try {
+    const { data: user, error } = await supabase
+      .from('user_affiliates')
+      .select('primeiro_nome, ultimo_nome, email, fotodeperfil')
+      .eq('id', req.session.user.id)
+      .single();
+    if (error) throw error;
+    return res.json(user);
+  } catch (err) {
+    console.error('Erro ao carregar perfil:', err);
+    return res.status(500).json({ error: 'Não foi possível obter perfil' });
+  }
+});
+
 // --- POST /api/login ---
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   const subdomain = req.subdomain;
-  if (!subdomain) return res.status(400).json({ error: 'Subdomínio não identificado.' });
+  if (!subdomain) {
+    return res.status(400).json({ error: 'Subdomínio não identificado.' });
+  }
 
   // Busca afiliado
   const { data: affiliate, error: affErr } = await supabase
@@ -100,11 +126,14 @@ app.post('/api/login', async (req, res) => {
 
   // Autenticação OK
   loginAttempts[key] = { count: 0, lastAttempt: Date.now() };
+  // Salve no session todos os campos que vai usar no front
   req.session.user = {
-    id:           user.id,
-    email:        user.email,
-    affiliate_id: affiliate.id,
-    nome:         `${user.primeiro_nome} ${user.ultimo_nome}`
+    id:             user.id,
+    email:          user.email,
+    affiliate_id:   affiliate.id,
+    primeiro_nome:  user.primeiro_nome,
+    ultimo_nome:    user.ultimo_nome,
+    fotodeperfil:   user.fotodeperfil
   };
 
   return res.json({ success: true, redirect: '/agente/painel-vendas.html' });
@@ -129,9 +158,8 @@ app.get('/api/gerar-hash', async (req, res) => {
 
 // --- GET /api/agent/pedidos ---
 // Retorna apenas os pedidos do affiliate_id logado, filtrados por data_venda
-app.get('/api/agent/pedidos', async (req, res) => {
+app.get('/api/agent/pedidos', authMiddleware, async (req, res) => {
   try {
-    // Verifica sessão
     const user = req.session.user;
     if (!user || !user.affiliate_id) {
       return res.status(401).json({ error: 'Não autorizado.' });
@@ -145,9 +173,9 @@ app.get('/api/agent/pedidos', async (req, res) => {
     const { data, error } = await supabase
       .from('supplier_pedidos')
       .select('*')
-      .eq('affiliate_id', user.affiliate_id)      // somente da white‑label atual
-      .gte('data_venda', startDate)               // filtro por data inicial
-      .lte('data_venda', endDate)                 // filtro por data final
+      .eq('affiliate_id', user.affiliate_id)
+      .gte('data_venda', startDate)
+      .lte('data_venda', endDate)
       .order('data_venda', { ascending: false });
 
     if (error) throw error;
