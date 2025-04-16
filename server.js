@@ -5,20 +5,18 @@ const cookieSession = require('cookie-session');
 const { createClient } = require('@supabase/supabase-js');
 const bcrypt = require('bcrypt');
 
-// Middleware para extrair o subdomínio da requisição
 const subdomainMiddleware = require('./middleware/subdomain');
-// Middleware para proteger as rotas (verifica se o usuário está logado)
-const authMiddleware = require('./middleware/authMiddleware');
+const authMiddleware    = require('./middleware/authMiddleware');
 
 const app = express();
 
-// 1) Configuração do cookie de sessão (expira em 1 hora)
+// 1) Sessão via cookie (1h de vida)
 app.use(cookieSession({
   name: 'session',
   secret: process.env.SUPABASE_JWT_SECRET,
-  maxAge: 60 * 60 * 1000,   // 1 hora
+  maxAge: 60 * 60 * 1000,        // 1 hora
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
+  secure:   process.env.NODE_ENV === 'production',
   sameSite: 'lax'
 }));
 
@@ -26,63 +24,68 @@ app.use(cookieSession({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 3) Extrai subdomínio (se você usa white‑label por subdomínio)
+// 3) White‑label por subdomínio (se usar)
 app.use(subdomainMiddleware);
 
-// 4) Serve estáticos públicos não sensíveis (CSS, JS, imagens)
-console.log("Assets folder path: ", path.join(__dirname, 'assets'));
+// 4) Estáticos públicos: CSS, JS, imagens
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
-// 5) Protege todas as rotas e páginas em /agente
+// 5) Rota pública de login (dentro de /agente, mas sem exigir sessão)
+app.get('/agente/loginagente.html', (req, res) => {
+  return res.sendFile(path.join(__dirname, 'agente', 'loginagente.html'));
+});
+
+// 6) Protege tudo em /agente (exceto login acima)
+//    - se não estiver logado, authMiddleware fará redirect para '/agente/loginagente.html'
 app.use(
   '/agente',
-  authMiddleware,                                  // só continua se estiver logado
-  express.static(path.join(__dirname, 'agente'))   // então serve painel, etc.
+  authMiddleware,
+  express.static(path.join(__dirname, 'agente'))
 );
 
-// 6) Serve o restante dos arquivos estáticos públicos (loginagente.html, etc.)
+// 7) Demais arquivos estáticos públicos (home, páginas de marketing, etc.)
 app.use(express.static(path.join(__dirname)));
 
-// 7) Inicializa o cliente Supabase
+// 8) Inicializa Supabase
 const supabaseUrl    = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!supabaseUrl || !serviceRoleKey) {
-  throw new Error('Variáveis de ambiente SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY são necessárias.');
+  throw new Error('Faltam SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY nas vars de ambiente');
 }
 const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-// Em memória para controle de tentativas de login
+// Em memória: controle de tentativas de login
 let loginAttempts = {};
 
 // --- ENDPOINTS ---
 
-// Login
+// POST /api/login
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   const subdomain = req.subdomain;
   if (!subdomain) {
-    return res.status(400).json({ error: "Subdomínio não identificado." });
+    return res.status(400).json({ error: 'Subdomínio não identificado.' });
   }
 
-  // Busca afiliado pelo subdomínio
+  // 1) Busca afiliado
   const { data: affiliate, error: affErr } = await supabase
     .from('affiliates')
     .select('*')
     .or(`subdomain.eq.${subdomain},subdomain.eq.${subdomain}.airland.com.br`)
     .single();
   if (affErr || !affiliate) {
-    return res.status(400).json({ error: "Afiliado não encontrado." });
+    return res.status(400).json({ error: 'Afiliado não encontrado.' });
   }
 
-  // Limita 5 tentativas a cada 3h
+  // 2) Limita 5 tentativas a cada 3h
   const key = `${email}_${affiliate.id}`;
   const current = loginAttempts[key] || { count: 0, lastAttempt: 0 };
   const threeHours = 3 * 60 * 60 * 1000;
   if (current.count >= 5 && (Date.now() - current.lastAttempt) < threeHours) {
-    return res.status(429).json({ error: "Muitas tentativas falhas. Tente mais tarde." });
+    return res.status(429).json({ error: 'Muitas tentativas falhas. Tente mais tarde.' });
   }
 
-  // Busca usuário
+  // 3) Busca usuário
   const { data: user, error: userErr } = await supabase
     .from('user_affiliates')
     .select('*')
@@ -91,46 +94,46 @@ app.post('/api/login', async (req, res) => {
     .single();
   if (userErr || !user) {
     loginAttempts[key] = { count: current.count + 1, lastAttempt: Date.now() };
-    return res.status(400).json({ error: "Email ou senha inválidos." });
+    return res.status(400).json({ error: 'Email ou senha inválidos.' });
   }
 
-  // Verifica senha
+  // 4) Valida senha
   const match = await bcrypt.compare(password, user.password);
   if (!match) {
     loginAttempts[key] = { count: current.count + 1, lastAttempt: Date.now() };
-    return res.status(400).json({ error: "Email ou senha inválidos." });
+    return res.status(400).json({ error: 'Email ou senha inválidos.' });
   }
 
-  // Zera contador e grava sessão
+  // 5) Autenticação OK: zera contador e guarda sessão
   loginAttempts[key] = { count: 0, lastAttempt: Date.now() };
   req.session.user = {
     id:           user.id,
     email:        user.email,
     affiliate_id: affiliate.id,
-    nome:         `${user.primeiro_nome} ${user.ultimo_nome}`,
+    nome:         `${user.primeiro_nome} ${user.ultimo_nome}`
   };
 
-  return res.json({ success: true, redirect: "/agente/painel-vendas.html" });
+  return res.json({ success: true, redirect: '/agente/painel-vendas.html' });
 });
 
-// Logout
+// POST /api/logout
 app.post('/api/logout', (req, res) => {
   req.session = null;
   return res.json({ success: true, redirect: '/agente/loginagente.html' });
 });
 
-// Gera hash de teste
+// GET /api/gerar-hash (apenas para teste)
 app.get('/api/gerar-hash', async (req, res) => {
   try {
-    const hash = await bcrypt.hash("Teste123!", 10);
+    const hash = await bcrypt.hash('Teste123!', 10);
     return res.json({ hash });
   } catch (err) {
-    console.error("Erro ao gerar hash:", err);
-    return res.status(500).json({ error: "Erro ao gerar hash" });
+    console.error('Erro ao gerar hash:', err);
+    return res.status(500).json({ error: 'Erro ao gerar hash' });
   }
 });
 
-// Inicia o servidor
+// Inicia servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
