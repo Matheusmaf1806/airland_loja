@@ -5,15 +5,20 @@ const cookieSession = require('cookie-session');
 const { createClient } = require('@supabase/supabase-js');
 const bcrypt = require('bcrypt');
 
+// Middleware para extrair o subdomínio da requisição
 const subdomainMiddleware = require('./middleware/subdomain');
+// Middleware para proteger as rotas (verifica se o usuário está logado)
+// Certifique-se de criar o arquivo middleware/authMiddleware.js conforme instruções.
+const authMiddleware = require('./middleware/authMiddleware');
 
 const app = express();
 
 // Configuração do cookie de sessão (expira em 1 hora)
-// OBS: Substitua 'CHAVE_SECRETA_ALEATORIA' por uma chave forte e secreta.
+// Utilize uma variável de ambiente adequada (aqui estamos usando SUPABASE_JWT_SECRET)
+// para garantir uma chave forte; porém, recomenda-se idealmente ter uma variável específica para a sessão.
 app.use(cookieSession({
   name: 'session',
-  secret: process.env.SUPABASE_JWT_SECRET, // Ou use uma variável separada, como process.env.SESSION_SECRET
+  secret: process.env.SUPABASE_JWT_SECRET, // ou process.env.SESSION_SECRET se preferir uma variável separada
   maxAge: 60 * 60 * 1000, // 1 hora
 }));
 
@@ -23,15 +28,19 @@ app.use(express.urlencoded({ extended: true }));
 // Aplica o middleware para extrair o subdomínio da requisição
 app.use(subdomainMiddleware);
 
-// Serve arquivos estáticos da raiz (HTML, CSS, JS, imagens)
+// Serve os arquivos estáticos da raiz (HTML, CSS, JS, imagens públicos)
 app.use(express.static(path.join(__dirname)));
 
-// Inicializa o cliente do Supabase com as variáveis de ambiente configuradas (no Vercel)
+// Protege as rotas da área "agente" para que somente usuários autenticados possam acessá-las.
+// Os arquivos protegidos devem estar na pasta "agente" (por exemplo, agente/painel-vendas.html, agente/pedidos.html etc.)
+app.use('/agente', authMiddleware, express.static(path.join(__dirname, 'agente')));
+
+// Inicializa o cliente do Supabase utilizando as variáveis de ambiente configuradas (no Vercel ou localmente)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-// Objeto para controlar as tentativas de login (armazenado em memória – para produção, idealmente use um banco ou cache)
+// Objeto para controlar as tentativas de login (armazenado em memória – para produção, use uma solução persistente)
 let loginAttempts = {};
 
 // Endpoint para o login
@@ -54,11 +63,11 @@ app.post('/api/login', async (req, res) => {
     return res.status(400).json({ error: "Afiliado não encontrado." });
   }
   
-  // Define uma chave única para rastrear as tentativas de login deste usuário (por email e afiliado)
+  // Define uma chave única para rastrear as tentativas de login deste usuário (por email e affiliate)
   const attemptKey = `${email}_${affiliate.id}`;
   const currentAttempt = loginAttempts[attemptKey] || { count: 0, lastAttempt: 0 };
   
-  // Se já houver 5 ou mais tentativas e não se passaram 3 horas, bloqueia o login
+  // Verifica se há 5 ou mais tentativas falhas e se não se passaram 3 horas desde a última tentativa
   const threeHours = 3 * 60 * 60 * 1000;
   if (currentAttempt.count >= 5 && (Date.now() - currentAttempt.lastAttempt) < threeHours) {
     return res.status(429).json({ error: "Muitas tentativas falhas. Tente novamente mais tarde." });
@@ -88,7 +97,7 @@ app.post('/api/login', async (req, res) => {
   // Login efetuado com sucesso – reseta as tentativas para este usuário
   loginAttempts[attemptKey] = { count: 0, lastAttempt: Date.now() };
   
-  // Cria a sessão do usuário (armazenando dados que podem ser usados depois)
+  // Cria a sessão do usuário (armazenando informações úteis para posteriores verificações)
   req.session.user = {
     id: user.id,
     email: user.email,
@@ -96,11 +105,11 @@ app.post('/api/login', async (req, res) => {
     nome: user.primeiro_nome + " " + user.ultimo_nome,
   };
   
-  // Responde informando sucesso e a URL para redirecionamento (painel-vendas.html)
-  return res.json({ success: true, redirect: "/painel-vendas.html" });
+  // Responde informando sucesso e o redirecionamento para a área protegida (neste exemplo, /agente/painel-vendas.html)
+  return res.json({ success: true, redirect: "/agente/painel-vendas.html" });
 });
 
-// Define a porta (para testes locais use 3000; no Vercel, a porta é definida automaticamente)
+// Define a porta (para desenvolvimento local use 3000; no Vercel, a porta é definida automaticamente)
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
