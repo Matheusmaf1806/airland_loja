@@ -165,6 +165,28 @@
     // Initial build
     build(+selectYear.value, +selectMonth.value);
 
+    // ----- Dispatch rangeSelected event on Confirm -----
+    btnApply.addEventListener("click", () => {
+      if (start !== null && end !== null) {
+        const year = +selectYear.value;
+        const month = +selectMonth.value;
+        const toDate = i => {
+          const firstOffset = weekdayIdx(new Date(year, month, 1));
+          const dayNum = i - firstOffset + 1;
+          return new Date(year, month, dayNum);
+        };
+        const d1 = toDate(start);
+        const d2 = toDate(end);
+        const fmt = d => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+        const text = `${fmt(d1)} – ${fmt(d2)}`;
+        calendarEl.dispatchEvent(new CustomEvent('rangeSelected',{ detail:{ start:d1, end:d2, text }}));
+      }
+      calendarEl.style.display = 'none';
+    });
+
+    // Close on Voltar
+    btnBack.addEventListener("click", () => calendarEl.style.display = 'none');
+
     return calendarEl;
   }
 
