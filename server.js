@@ -16,7 +16,7 @@ const app = express();
 // Utilize uma variável de ambiente adequada para a chave, como SUPABASE_JWT_SECRET
 app.use(cookieSession({
   name: 'session',
-  secret: process.env.SUPABASE_JWT_SECRET, // ou process.env.SESSION_SECRET se preferir uma variável separada
+  secret: process.env.SUPABASE_JWT_SECRET, // ou process.env.SESSION_SECRET se preferir
   maxAge: 60 * 60 * 1000, // 1 hora
 }));
 
@@ -48,32 +48,32 @@ let loginAttempts = {};
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   const subdomain = req.subdomain;
-  
+
   if (!subdomain) {
     return res.status(400).json({ error: "Subdomínio não identificado." });
   }
-  
+
   // Busca o afiliado na tabela "affiliates" com base no subdomínio extraído
   const { data: affiliate, error: affiliateError } = await supabase
     .from('affiliates')
     .select('*')
     .eq('subdomain', subdomain)
     .single();
-  
+
   if (affiliateError || !affiliate) {
     return res.status(400).json({ error: "Afiliado não encontrado." });
   }
-  
+
   // Define uma chave única para rastrear as tentativas de login deste usuário (por email e affiliate)
   const attemptKey = `${email}_${affiliate.id}`;
   const currentAttempt = loginAttempts[attemptKey] || { count: 0, lastAttempt: 0 };
-  
+
   // Se já houver 5 ou mais tentativas e não tiver passado 3 horas, bloqueia o login
   const threeHours = 3 * 60 * 60 * 1000;
   if (currentAttempt.count >= 5 && (Date.now() - currentAttempt.lastAttempt) < threeHours) {
     return res.status(429).json({ error: "Muitas tentativas falhas. Tente novamente mais tarde." });
   }
-  
+
   // Busca o usuário na tabela "user_affiliates" filtrando por email e affiliate_id
   const { data: user, error: userError } = await supabase
     .from('user_affiliates')
@@ -81,23 +81,23 @@ app.post('/api/login', async (req, res) => {
     .eq('email', email)
     .eq('affiliate_id', affiliate.id)
     .single();
-  
+
   if (userError || !user) {
     // Incrementa as tentativas em caso de erro
     loginAttempts[attemptKey] = { count: currentAttempt.count + 1, lastAttempt: Date.now() };
     return res.status(400).json({ error: "Email ou senha inválidos." });
   }
-  
+
   // Compara a senha enviada com a senha hash armazenada (usando bcrypt)
   const passwordMatch = await bcrypt.compare(password, user.password);
   if (!passwordMatch) {
     loginAttempts[attemptKey] = { count: currentAttempt.count + 1, lastAttempt: Date.now() };
     return res.status(400).json({ error: "Email ou senha inválidos." });
   }
-  
+
   // Login efetuado com sucesso: reseta as tentativas para este usuário
   loginAttempts[attemptKey] = { count: 0, lastAttempt: Date.now() };
-  
+
   // Cria a sessão do usuário
   req.session.user = {
     id: user.id,
@@ -105,7 +105,7 @@ app.post('/api/login', async (req, res) => {
     affiliate_id: affiliate.id,
     nome: user.primeiro_nome + " " + user.ultimo_nome,
   };
-  
+
   // Responde com sucesso e instrui o redirecionamento para a área protegida
   return res.json({ success: true, redirect: "/agente/painel-vendas.html" });
 });
