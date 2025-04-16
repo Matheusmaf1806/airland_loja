@@ -16,7 +16,7 @@ const app = express();
 // Utilize uma variável de ambiente adequada para a chave, como SUPABASE_JWT_SECRET
 app.use(cookieSession({
   name: 'session',
-  secret: process.env.SUPABASE_JWT_SECRET, // ou use process.env.SESSION_SECRET se preferir uma variável separada
+  secret: process.env.SUPABASE_JWT_SECRET, // ou process.env.SESSION_SECRET se preferir
   maxAge: 60 * 60 * 1000, // 1 hora
 }));
 
@@ -27,7 +27,7 @@ app.use(express.urlencoded({ extended: true }));
 // Aplica o middleware para extrair o subdomínio da requisição
 app.use(subdomainMiddleware);
 
-// (Opcional para depuração) Verifique o caminho absoluto da pasta assets
+// Para depuração: imprime o caminho absoluto da pasta assets
 console.log("Assets folder path: ", path.join(__dirname, 'assets'));
 
 // Monta explicitamente a pasta "assets" para servir arquivos estáticos
@@ -36,15 +36,15 @@ app.use('/assets', express.static(path.join(__dirname, 'assets')));
 // Serve os arquivos estáticos da raiz (HTML, etc.)
 app.use(express.static(path.join(__dirname)));
 
-// Protege as rotas da área "agente": somente usuários autenticados podem acessá-las.
+// Protege as rotas da área "agente": somente usuários autenticados podem acessá-las
 app.use('/agente', authMiddleware, express.static(path.join(__dirname, 'agente')));
 
-// Inicializa o cliente do Supabase utilizando as variáveis de ambiente configuradas
+// Inicializa o cliente do Supabase com as variáveis de ambiente configuradas
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-// Objeto para controlar as tentativas de login (em memória)
+// Objeto para controlar as tentativas de login (armazenado em memória)
 let loginAttempts = {};
 
 // Endpoint para login
@@ -101,7 +101,7 @@ app.post('/api/login', async (req, res) => {
   // Login efetuado com sucesso: reseta as tentativas para este usuário
   loginAttempts[attemptKey] = { count: 0, lastAttempt: Date.now() };
   
-  // Cria a sessão do usuário
+  // Cria a sessão do usuário (armazenando informações úteis para posteriores verificações)
   req.session.user = {
     id: user.id,
     email: user.email,
