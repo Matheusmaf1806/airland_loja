@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -652,8 +653,8 @@
     /**********************************
      * 4. Lógica do Calendário e Filtro por Data
      **********************************/
-    // **IMPORT RELATIVO** ao HTML
-    import { createCalendarComponent } from "./assets/js/calendarComponent.js";
+    // IMPORT ABSOLUTO: vai buscar em https://vanderleitur.airland.com.br/assets/js/calendarComponent.js
+    import { createCalendarComponent } from "/assets/js/calendarComponent.js";
 
     const btnOpen = document.getElementById("openCalendarBtn");
     const selectedDatesEl = document.getElementById("selectedDates");
@@ -673,12 +674,12 @@
       requestAnimationFrame(() => {
         const c = calendarEl.getBoundingClientRect();
         if (c.right > innerWidth) {
-          calendarEl.style.left = `${parseFloat(calendarEl.style.left) -
-            (c.right - innerWidth + 10)}px`;
+          calendarEl.style.left =
+            parseFloat(calendarEl.style.left) - (c.right - innerWidth + 10) + "px";
         }
         if (c.bottom > innerHeight) {
-          calendarEl.style.top = `${parseFloat(calendarEl.style.top) -
-            (c.bottom - innerHeight + 10)}px`;
+          calendarEl.style.top =
+            parseFloat(calendarEl.style.top) - (c.bottom - innerHeight + 10) + "px";
         }
       });
     }
@@ -698,19 +699,17 @@
 
     const btnApply = calendarEl.querySelector(".calendar__button--primary");
     btnApply.addEventListener("click", () => {
-      // aqui você pega o intervalo real...
       const interval = "01/04/2025 - 23/04/2025";
       selectedDatesEl.textContent = interval;
       selectedDatesEl.style.display = "inline";
       calendarEl.style.display = "none";
-      // filterDataByDate(start, end)...
+      // aqui chama filterDataByDate(start, end)
     });
 
     const btnBack = calendarEl.querySelector(".calendar__button--grey");
     btnBack.addEventListener("click", () => {
       calendarEl.style.display = "none";
     });
-
     /**********************************
      * 5. Lógica de Pedidos Recentes com Paginação
      **********************************/
