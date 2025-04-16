@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -653,62 +652,84 @@
     /**********************************
      * 4. Lógica do Calendário e Filtro por Data
      **********************************/
-    // IMPORT ABSOLUTO: vai buscar em https://vanderleitur.airland.com.br/assets/js/calendarComponent.js
+    // Importa o componente do calendário (ajuste o caminho conforme sua estrutura)
     import { createCalendarComponent } from "/assets/js/calendarComponent.js";
 
-    const btnOpen = document.getElementById("openCalendarBtn");
+    // Obter os elementos do calendário e do botão
+    const btnOpenCalendar = document.getElementById("openCalendarBtn");
+    // Adiciona margin-bottom de 20px ao botão "Selecionar Data"
+    btnOpenCalendar.style.marginBottom = "20px";
+
+    const calendarContainer = document.getElementById("calendarContainer");
+    // O bloco "Datas selecionadas:" ficará oculto até a busca efetivada
     const selectedDatesEl = document.getElementById("selectedDates");
     selectedDatesEl.style.display = "none";
-    btnOpen.style.marginBottom = "20px";
 
+    // Cria o componente do calendário
     const calendarEl = createCalendarComponent();
+    // Configura o calendário para atuar como tooltip (hover)
     calendarEl.style.position = "absolute";
     calendarEl.style.display = "none";
     calendarEl.style.zIndex = "1000";
+    // Anexa o calendário ao body fora do fluxo normal
     document.body.appendChild(calendarEl);
 
+    // Função para posicionar o calendário próximo ao botão, garantindo que fique dentro da tela
     function positionCalendar() {
-      const r = btnOpen.getBoundingClientRect();
-      calendarEl.style.top = `${r.bottom + window.scrollY}px`;
-      calendarEl.style.left = `${r.left + window.scrollX}px`;
-      requestAnimationFrame(() => {
-        const c = calendarEl.getBoundingClientRect();
-        if (c.right > innerWidth) {
-          calendarEl.style.left =
-            parseFloat(calendarEl.style.left) - (c.right - innerWidth + 10) + "px";
+    const rect = btnOpenCalendar.getBoundingClientRect();
+    calendarEl.style.top = (rect.bottom + window.scrollY) + "px";
+    calendarEl.style.left = (rect.left + window.scrollX) + "px";
+
+    requestAnimationFrame(() => {
+        const calendarRect = calendarEl.getBoundingClientRect();
+        if (calendarRect.right > window.innerWidth) {
+        const shiftX = calendarRect.right - window.innerWidth + 10;
+        calendarEl.style.left = (parseFloat(calendarEl.style.left) - shiftX) + "px";
         }
-        if (c.bottom > innerHeight) {
-          calendarEl.style.top =
-            parseFloat(calendarEl.style.top) - (c.bottom - innerHeight + 10) + "px";
+        if (calendarRect.bottom > window.innerHeight) {
+        const shiftY = calendarRect.bottom - window.innerHeight + 10;
+        calendarEl.style.top = (parseFloat(calendarEl.style.top) - shiftY) + "px";
         }
-      });
+    });
     }
 
-    btnOpen.addEventListener("mouseenter", () => {
-      positionCalendar();
-      calendarEl.style.display = "block";
+    // Exibe o calendário como hover quando o mouse entra no botão
+    btnOpenCalendar.addEventListener("mouseenter", () => {
+    positionCalendar();
+    calendarEl.style.display = "block";
     });
-    btnOpen.addEventListener("mouseleave", () => {
-      setTimeout(() => {
-        if (!calendarEl.matches(":hover")) calendarEl.style.display = "none";
-      }, 200);
+
+    // Fecha o calendário quando o mouse sai do botão e do calendário
+    btnOpenCalendar.addEventListener("mouseleave", () => {
+    setTimeout(() => {
+        if (!calendarEl.matches(":hover")) {
+        calendarEl.style.display = "none";
+        }
+    }, 200);
     });
     calendarEl.addEventListener("mouseleave", () => {
-      calendarEl.style.display = "none";
+    calendarEl.style.display = "none";
     });
 
+    // Ao confirmar a seleção no calendário, atualize o bloco de "Datas selecionadas" e invoque a filtragem dos dados
     const btnApply = calendarEl.querySelector(".calendar__button--primary");
     btnApply.addEventListener("click", () => {
-      const interval = "01/04/2025 - 23/04/2025";
-      selectedDatesEl.textContent = interval;
-      selectedDatesEl.style.display = "inline";
-      calendarEl.style.display = "none";
-      // aqui chama filterDataByDate(start, end)
+    // Capture as datas selecionadas (exemplo fixo)
+    const datasSelecionadas = "01/04/2025 - 23/04/2025";
+    selectedDatesEl.textContent = datasSelecionadas;
+    // Torne o bloco "Datas selecionadas:" visível
+    selectedDatesEl.style.display = "inline";
+    
+    // Aqui, invoque sua função para filtrar os dados conforme as datas capturadas.
+    // Ex.: filterDataByDate(startDate, endDate);
+    
+    calendarEl.style.display = "none";
     });
 
+    // Botão "Voltar" fecha o calendário sem confirmar a seleção
     const btnBack = calendarEl.querySelector(".calendar__button--grey");
     btnBack.addEventListener("click", () => {
-      calendarEl.style.display = "none";
+    calendarEl.style.display = "none";
     });
     /**********************************
      * 5. Lógica de Pedidos Recentes com Paginação
