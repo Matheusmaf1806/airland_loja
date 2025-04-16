@@ -1,12 +1,12 @@
 // server.js
-const express = require('express');
-const path = require('path');
+const express       = require('express');
+const path          = require('path');
 const cookieSession = require('cookie-session');
 const { createClient } = require('@supabase/supabase-js');
-const bcrypt = require('bcrypt');
+const bcrypt        = require('bcrypt');
 
 const subdomainMiddleware = require('./middleware/subdomain');
-const authMiddleware    = require('./middleware/authMiddleware');
+const authMiddleware     = require('./middleware/authMiddleware');
 
 const app = express();
 
@@ -14,10 +14,10 @@ const app = express();
 app.use(cookieSession({
   name: 'session',
   secret: process.env.SUPABASE_JWT_SECRET,
-  maxAge: 60 * 60 * 1000,        // 1 hora
+  maxAge: 60 * 60 * 1000,
   httpOnly: true,
   secure:   process.env.NODE_ENV === 'production',
-  sameSite: 'lax'
+  sameSite: 'lax',
 }));
 
 // 2) Body parsers
@@ -27,26 +27,25 @@ app.use(express.urlencoded({ extended: true }));
 // 3) White‑label por subdomínio (se usar)
 app.use(subdomainMiddleware);
 
-// 4) Estáticos públicos: CSS, JS, imagens
+// 4) Arquivos públicos não-sensiveis (CSS, JS, imagens)
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
-// 5) Rota pública de login (dentro de /agente, mas sem exigir sessão)
+// 5) Rota pública de login (antes do authMiddleware!)
 app.get('/agente/loginagente.html', (req, res) => {
   return res.sendFile(path.join(__dirname, 'agente', 'loginagente.html'));
 });
 
-// 6) Protege tudo em /agente (exceto login acima)
-//    - se não estiver logado, authMiddleware fará redirect para '/agente/loginagente.html'
+// 6) Protege tudo que vier em /agente **exceto** o login acima
 app.use(
   '/agente',
-  authMiddleware,
-  express.static(path.join(__dirname, 'agente'))
+  authMiddleware,                                  // só continua se estiver logado
+  express.static(path.join(__dirname, 'agente'))   // então serve painel, etc.
 );
 
-// 7) Demais arquivos estáticos públicos (home, páginas de marketing, etc.)
+// 7) Demais estáticos públicos (home, marketing, outras páginas fora de /agente)
 app.use(express.static(path.join(__dirname)));
 
-// 8) Inicializa Supabase
+// 8) Inicializa cliente Supabase
 const supabaseUrl    = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!supabaseUrl || !serviceRoleKey) {
@@ -67,7 +66,7 @@ app.post('/api/login', async (req, res) => {
     return res.status(400).json({ error: 'Subdomínio não identificado.' });
   }
 
-  // 1) Busca afiliado
+  // Busca afiliado
   const { data: affiliate, error: affErr } = await supabase
     .from('affiliates')
     .select('*')
@@ -77,34 +76,34 @@ app.post('/api/login', async (req, res) => {
     return res.status(400).json({ error: 'Afiliado não encontrado.' });
   }
 
-  // 2) Limita 5 tentativas a cada 3h
+  // Limita 5 tentativas em 3h
   const key = `${email}_${affiliate.id}`;
-  const current = loginAttempts[key] || { count: 0, lastAttempt: 0 };
+  const curr = loginAttempts[key] || { count: 0, lastAttempt: 0 };
   const threeHours = 3 * 60 * 60 * 1000;
-  if (current.count >= 5 && (Date.now() - current.lastAttempt) < threeHours) {
+  if (curr.count >= 5 && (Date.now() - curr.lastAttempt) < threeHours) {
     return res.status(429).json({ error: 'Muitas tentativas falhas. Tente mais tarde.' });
   }
 
-  // 3) Busca usuário
-  const { data: user, error: userErr } = await supabase
+  // Busca usuário
+  const { data: user, error: usrErr } = await supabase
     .from('user_affiliates')
     .select('*')
     .eq('email', email)
     .eq('affiliate_id', affiliate.id)
     .single();
-  if (userErr || !user) {
-    loginAttempts[key] = { count: current.count + 1, lastAttempt: Date.now() };
+  if (usrErr || !user) {
+    loginAttempts[key] = { count: curr.count + 1, lastAttempt: Date.now() };
     return res.status(400).json({ error: 'Email ou senha inválidos.' });
   }
 
-  // 4) Valida senha
+  // Verifica senha
   const match = await bcrypt.compare(password, user.password);
   if (!match) {
-    loginAttempts[key] = { count: current.count + 1, lastAttempt: Date.now() };
+    loginAttempts[key] = { count: curr.count + 1, lastAttempt: Date.now() };
     return res.status(400).json({ error: 'Email ou senha inválidos.' });
   }
 
-  // 5) Autenticação OK: zera contador e guarda sessão
+  // Autenticação OK
   loginAttempts[key] = { count: 0, lastAttempt: Date.now() };
   req.session.user = {
     id:           user.id,
@@ -135,6 +134,4 @@ app.get('/api/gerar-hash', async (req, res) => {
 
 // Inicia servidor
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
