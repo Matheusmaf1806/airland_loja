@@ -116,7 +116,7 @@ app.post('/api/login', async (req, res) => {
 // Logout
 app.post('/api/logout', (req, res) => {
   req.session = null;
-  return res.json({ success: true, redirect: '/loginagente.html' });
+  return res.json({ success: true, redirect: '/agente/loginagente.html' });
 });
 
 // Gera hash de teste
