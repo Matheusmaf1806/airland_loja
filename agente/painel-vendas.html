@@ -638,12 +638,19 @@
       const r = btnOpen.getBoundingClientRect();
       calEl.style.top  = r.bottom + window.scrollY + "px";
       calEl.style.left = r.left   + window.scrollX + "px";
-      const cr = calEl.getBoundingClientRect();
-      if (cr.right  > window.innerWidth)  calEl.style.left = `${window.innerWidth - cr.width - 10}px`;
-      if (cr.bottom > window.innerHeight) calEl.style.top  = `${window.innerHeight - cr.height - 10}px`;
+      requestAnimationFrame(() => {
+        const cr = calEl.getBoundingClientRect();
+        if (cr.right  > window.innerWidth)  {
+          const excesso = cr.right - window.innerWidth + 10;
+          calEl.style.left = `${parseFloat(calEl.style.left) - excesso}px`;
+        }
+        if (cr.bottom > window.innerHeight) {
+          const excesso = cr.bottom - window.innerHeight + 10;
+          calEl.style.top  = `${parseFloat(calEl.style.top ) - excesso}px`;
+        }
+      });
     }
   
-    // Abre/fecha no clique
     btnOpen.addEventListener("click", () => {
       if (calEl.style.display === "none") {
         positionCal();
@@ -653,14 +660,12 @@
       }
     });
   
-    // Fecha ao clicar fora
     document.addEventListener("click", e => {
       if (!calEl.contains(e.target) && e.target !== btnOpen) {
         calEl.style.display = "none";
       }
     });
   
-    // Botão "Aplicar"
     const btnApply = calEl.querySelector(".calendar__button--primary");
     btnApply.addEventListener("click", () => {
       const sel = Array.from(calEl.querySelectorAll(".calendar__date--selected"));
@@ -716,6 +721,30 @@
       btnNext.disabled = page >= totalPages;
     }
   
+    /**
+     * Monta tabela de Pedidos por Região (UF)
+     */
+    function renderRegiao(data) {
+      const resumo = data.reduce((acc, p) => {
+        const uf = p.uf || 'ND';
+        acc[uf] = (acc[uf] || 0) + parseFloat(p.valor_venda);
+        return acc;
+      }, {});
+      const total = Object.values(resumo).reduce((sum, v) => sum + v, 0);
+      const tbody  = document.getElementById('regiaoBody');
+      tbody.innerHTML = '';
+      Object.entries(resumo).forEach(([uf, valor]) => {
+        const perc = total > 0 ? (valor / total * 100).toFixed(1) : '0.0';
+        tbody.insertAdjacentHTML('beforeend', `
+          <tr>
+            <td><p class="text-sm">${uf}</p></td>
+            <td><p class="text-sm">R$ ${valor.toFixed(2)}</p></td>
+            <td><p class="text-sm">${perc}%</p></td>
+          </tr>
+        `);
+      });
+    }
+  
     btnPrev.addEventListener("click", () => { if (currentPage > 1) renderPedidos(--currentPage); });
     btnNext.addEventListener("click", () => {
       const totalPages = Math.ceil(pedidosData.length / perPage);
@@ -741,6 +770,7 @@
           const faturamento = data.reduce((sum, p) => sum + parseFloat(p.valor_venda), 0);
           document.getElementById("faturamento").textContent = faturamento.toFixed(2);
           renderPedidos();
+          renderRegiao(data);
         })
         .catch(err => {
           console.error("Erro ao buscar pedidos:", err);
@@ -764,6 +794,6 @@
       selDates.style.display = "inline";
       filterDataByDate(inicioMes, fimMes);
     })();
-  </script>    
+  </script>      
 </body>
 </html>
