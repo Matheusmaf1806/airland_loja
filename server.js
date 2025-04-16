@@ -15,8 +15,11 @@ const app = express();
 // Configuração do cookie de sessão (expira em 1 hora)
 app.use(cookieSession({
   name: 'session',
-  secret: process.env.SUPABASE_JWT_SECRET, // ou process.env.SESSION_SECRET
-  maxAge: 60 * 60 * 1000, // 1 hora
+  secret: process.env.SUPABASE_JWT_SECRET,
+  maxAge: 60 * 60 * 1000,   // 1 hora
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax'
 }));
 
 app.use(express.json());
