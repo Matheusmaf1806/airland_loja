@@ -12,7 +12,7 @@ const authMiddleware = require('./middleware/authMiddleware');
 
 const app = express();
 
-// Configuração do cookie de sessão (expira em 1 hora)
+// 1) Configuração do cookie de sessão (expira em 1 hora)
 app.use(cookieSession({
   name: 'session',
   secret: process.env.SUPABASE_JWT_SECRET,
@@ -22,104 +22,107 @@ app.use(cookieSession({
   sameSite: 'lax'
 }));
 
+// 2) Body parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Aplica o middleware para extrair o subdomínio da requisição
+// 3) Extrai subdomínio (se você usa white‑label por subdomínio)
 app.use(subdomainMiddleware);
 
+// 4) Serve estáticos públicos não sensíveis (CSS, JS, imagens)
 console.log("Assets folder path: ", path.join(__dirname, 'assets'));
-
-// Monta explicitamente a pasta "assets" para servir arquivos estáticos
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
-// Serve os arquivos estáticos da raiz (HTML, etc.)
+// 5) Protege todas as rotas e páginas em /agente
+app.use(
+  '/agente',
+  authMiddleware,                                  // só continua se estiver logado
+  express.static(path.join(__dirname, 'agente'))   // então serve painel, etc.
+);
+
+// 6) Serve o restante dos arquivos estáticos públicos (loginagente.html, etc.)
 app.use(express.static(path.join(__dirname)));
 
-// Protege as rotas da área "agente": somente usuários autenticados podem acessá-las.
-app.use('/agente', authMiddleware, express.static(path.join(__dirname, 'agente')));
-
-// Inicializa o cliente do Supabase utilizando as variáveis de ambiente configuradas
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+// 7) Inicializa o cliente Supabase
+const supabaseUrl    = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!supabaseUrl || !serviceRoleKey) {
+  throw new Error('Variáveis de ambiente SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY são necessárias.');
+}
 const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-// Objeto para controlar as tentativas de login (em memória)
+// Em memória para controle de tentativas de login
 let loginAttempts = {};
 
-// Endpoint para login
+// --- ENDPOINTS ---
+
+// Login
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   const subdomain = req.subdomain;
-  
   if (!subdomain) {
     return res.status(400).json({ error: "Subdomínio não identificado." });
   }
-  
-  const { data: affiliate, error: affiliateError } = await supabase
+
+  // Busca afiliado pelo subdomínio
+  const { data: affiliate, error: affErr } = await supabase
     .from('affiliates')
     .select('*')
     .or(`subdomain.eq.${subdomain},subdomain.eq.${subdomain}.airland.com.br`)
     .single();
-  
-  if (affiliateError || !affiliate) {
+  if (affErr || !affiliate) {
     return res.status(400).json({ error: "Afiliado não encontrado." });
   }
-  
-  const attemptKey = `${email}_${affiliate.id}`;
-  const currentAttempt = loginAttempts[attemptKey] || { count: 0, lastAttempt: 0 };
+
+  // Limita 5 tentativas a cada 3h
+  const key = `${email}_${affiliate.id}`;
+  const current = loginAttempts[key] || { count: 0, lastAttempt: 0 };
   const threeHours = 3 * 60 * 60 * 1000;
-  
-  if (currentAttempt.count >= 5 && (Date.now() - currentAttempt.lastAttempt) < threeHours) {
-    return res.status(429).json({ error: "Muitas tentativas falhas. Tente novamente mais tarde." });
+  if (current.count >= 5 && (Date.now() - current.lastAttempt) < threeHours) {
+    return res.status(429).json({ error: "Muitas tentativas falhas. Tente mais tarde." });
   }
-  
-  const { data: user, error: userError } = await supabase
+
+  // Busca usuário
+  const { data: user, error: userErr } = await supabase
     .from('user_affiliates')
     .select('*')
     .eq('email', email)
     .eq('affiliate_id', affiliate.id)
     .single();
-  
-  if (userError || !user) {
-    loginAttempts[attemptKey] = { count: currentAttempt.count + 1, lastAttempt: Date.now() };
+  if (userErr || !user) {
+    loginAttempts[key] = { count: current.count + 1, lastAttempt: Date.now() };
     return res.status(400).json({ error: "Email ou senha inválidos." });
   }
-  
-  // Logs para depuração da comparação da senha
-  const passwordMatch = await bcrypt.compare(password, user.password);
-  console.log("Senha digitada:", password);
-  console.log("Hash armazenado:", user.password);
-  console.log("passwordMatch:", passwordMatch);
 
-  if (!passwordMatch) {
-    loginAttempts[attemptKey] = { count: currentAttempt.count + 1, lastAttempt: Date.now() };
+  // Verifica senha
+  const match = await bcrypt.compare(password, user.password);
+  if (!match) {
+    loginAttempts[key] = { count: current.count + 1, lastAttempt: Date.now() };
     return res.status(400).json({ error: "Email ou senha inválidos." });
   }
-  
-  loginAttempts[attemptKey] = { count: 0, lastAttempt: Date.now() };
-  
+
+  // Zera contador e grava sessão
+  loginAttempts[key] = { count: 0, lastAttempt: Date.now() };
   req.session.user = {
-    id: user.id,
-    email: user.email,
+    id:           user.id,
+    email:        user.email,
     affiliate_id: affiliate.id,
-    nome: user.primeiro_nome + " " + user.ultimo_nome,
+    nome:         `${user.primeiro_nome} ${user.ultimo_nome}`,
   };
-  
+
   return res.json({ success: true, redirect: "/agente/painel-vendas.html" });
 });
 
-// Endpoint para logout
+// Logout
 app.post('/api/logout', (req, res) => {
   req.session = null;
   return res.json({ success: true, redirect: '/loginagente.html' });
 });
 
-// Endpoint temporário para gerar hash para "Teste123!"
+// Gera hash de teste
 app.get('/api/gerar-hash', async (req, res) => {
-  const senha = "Teste123!";
   try {
-    const hash = await bcrypt.hash(senha, 10);
+    const hash = await bcrypt.hash("Teste123!", 10);
     return res.json({ hash });
   } catch (err) {
     console.error("Erro ao gerar hash:", err);
@@ -127,7 +130,7 @@ app.get('/api/gerar-hash', async (req, res) => {
   }
 });
 
-// Define a porta e inicia o servidor
+// Inicia o servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
