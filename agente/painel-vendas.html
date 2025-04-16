@@ -21,6 +21,43 @@
     <link rel="stylesheet" href="/assets/css/calcom.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css" />
 
+    <style>
+      /* Cor padrão dos links da sidebar */
+      .sidebar-nav a {
+        color: #5d657b;
+      }
+      /* Itens pai de submenu não são destacados automaticamente */
+      .sidebar-nav .nav-item.nav-item-has-children > a {
+        color: #5d657b;
+      }
+      /* Somente o link ativo (ícone e texto) será pintado em #365CF5 */
+      .active-menu,
+      .active-menu i,
+      .active-menu svg {
+        color: #365CF5 !important;
+        fill: #365CF5 !important;
+      }
+      /* Sidebar ocupa 100vh e organiza os elementos em coluna */
+      aside.sidebar-nav-wrapper {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+      /* O menu expande e tem um padding-bottom para evitar sobreposição com a promo-box */
+      aside.sidebar-nav-wrapper nav.sidebar-nav {
+        flex: 1;
+        overflow-y: auto;
+        padding-bottom: 80px;
+      }
+      /* A promo-box fica no fim da sidebar */
+      aside.sidebar-nav-wrapper .promo-box {
+        margin-top: auto;
+        margin-bottom: 1rem;
+        z-index: 1000;
+        object-fit: cover;
+      }
+    </style>
+    
   </head>
   <body>
     <!-- ======== Preloader ========= -->
