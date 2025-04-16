@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -656,96 +655,84 @@
     /**********************************
      * 5. Paginação e Renderização de Pedidos
      **********************************/
-    let pedidosData  = [];
-    let currentPage  = 1;
-    const perPage    = 15;
-    const bodyPed    = document.getElementById("pedidosBody");
-    const btnPrev    = document.getElementById("prevPageBtn");
-    const btnNext    = document.getElementById("nextPageBtn");
-    const infoPag    = document.getElementById("paginationInfo");
-  
-    function renderPedidos(page = 1) {
-      bodyPed.innerHTML = "";
-      const slice = pedidosData.slice((page - 1) * perPage, page * perPage);
-      if (!slice.length) {
-        bodyPed.innerHTML = `<tr><td colspan="4" class="text-center">Nenhum pedido encontrado.</td></tr>`;
-      } else {
-        slice.forEach(p => {
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
+     const bodyPed = document.getElementById("pedidosBody");
+  const btnPrev = document.getElementById("prevPageBtn");
+  const btnNext = document.getElementById("nextPageBtn");
+  const infoPag = document.getElementById("paginationInfo");
+  const perPage = 15;
+  let pedidosData = [];
+  let currentPage = 1;
+
+  function renderPedidos(page = 1) {
+    bodyPed.innerHTML = "";
+    const slice = pedidosData.slice((page - 1) * perPage, page * perPage);
+    if (!slice.length) {
+      bodyPed.innerHTML = `<tr><td colspan="4" class="text-center">Nenhum pedido encontrado.</td></tr>`;
+    } else {
+      slice.forEach(p => {
+        bodyPed.insertAdjacentHTML('beforeend', `
+          <tr>
             <td>${p.nome_comprador}</td>
             <td>${p.efetivado_por}</td>
             <td>R$ ${parseFloat(p.valor_venda).toFixed(2)}</td>
             <td class="text-end">${p.status}</td>
-          `;
-          bodyPed.appendChild(tr);
-        });
-      }
-      const totalPages = Math.max(1, Math.ceil(pedidosData.length / perPage));
-      infoPag.textContent = `Página ${page} de ${totalPages} (${pedidosData.length} registros)`;
-      btnPrev.disabled = page <= 1;
-      btnNext.disabled = page >= totalPages;
+          </tr>
+        `);
+      });
     }
-  
-    btnPrev.addEventListener("click", () => {
-      if (currentPage > 1) renderPedidos(--currentPage);
-    });
-    btnNext.addEventListener("click", () => {
-      const totalPages = Math.ceil(pedidosData.length / perPage);
-      if (currentPage < totalPages) renderPedidos(++currentPage);
-    });
-  
-    function filterDataByDate(startDate, endDate) {
-      const start = startDate.toISOString().split("T")[0];
-      const end   = endDate.toISOString().split("T")[0];
-      fetch(`/api/agent/pedidos?startDate=${start}&endDate=${end}`)
-        .then(res => res.json())
-        .then(data => {
-          // Atualiza Métricas
-          document.getElementById("clientCount").textContent = data.length;
-          const faturamento = data.reduce((sum, p) => sum + parseFloat(p.valor_venda), 0);
-          document.getElementById("faturamento").textContent = faturamento.toFixed(2);
-          // (adicione lógica para receita e takeRate aqui)
-  
-          // Atualiza lista de pedidos
-          pedidosData = data;
-          currentPage = 1;
-          renderPedidos();
-        })
-        .catch(err => console.error("Erro ao buscar pedidos:", err));
-    }
-  
-    // Botão "Aplicar" do calendário
-    const btnApply = calEl.querySelector(".calendar__button--primary");
-    btnApply.addEventListener("click", () => {
-      const selected = Array.from(calEl.querySelectorAll(".calendar__date--selected"));
-      if (!selected.length) return calEl.style.display = "none";
-  
-      const first = selected[0], last = selected[selected.length - 1];
-      const day1 = +first.textContent, day2 = +last.textContent;
-      const year = +calEl.querySelector("#calendar__year").value;
-      const month = +calEl.querySelector("#calendar__month").value;
-  
-      const s = new Date(year, month, day1);
-      const e = new Date(year, month, day2);
-      const fmt = d => `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;
-      selDates.textContent = `${fmt(s)} - ${fmt(e)}`;
-      selDates.style.display = "inline";
-  
-      filterDataByDate(s, e);
-      calEl.style.display = "none";
-    });
-  
-    // Carregamento inicial: mês corrente
-    (function init() {
-      const hoje = new Date();
-      const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-      const fimMes    = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
-      const fmt = d => `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;
-      selDates.textContent = `${fmt(inicioMes)} - ${fmt(fimMes)}`;
-      selDates.style.display = "inline";
-      filterDataByDate(inicioMes, fimMes);
-    })();
+    const totalPages = Math.max(1, Math.ceil(pedidosData.length / perPage));
+    infoPag.textContent = `Página ${page} de ${totalPages} (${pedidosData.length} registros)`;
+    btnPrev.disabled = page <= 1;
+    btnNext.disabled = page >= totalPages;
+  }
+
+  btnPrev.addEventListener("click", () => { if (currentPage > 1) renderPedidos(--currentPage); });
+  btnNext.addEventListener("click", () => {
+    const totalPages = Math.ceil(pedidosData.length / perPage);
+    if (currentPage < totalPages) renderPedidos(++currentPage);
+  });
+
+  function filterDataByDate(startDate, endDate) {
+    const fmtDate = d => d.toISOString().split("T")[0];
+    const start = fmtDate(startDate), end = fmtDate(endDate);
+
+    fetch(`/api/agent/pedidos?startDate=${start}&endDate=${end}`)
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        const ct = res.headers.get('content-type') || '';
+        if (!ct.includes('application/json')) throw new Error('Resposta não é JSON');
+        return res.json();
+      })
+      .then(data => {
+        pedidosData = data;
+        currentPage = 1;
+        // Atualiza métricas
+        document.getElementById("clientCount").textContent = data.length;
+        const faturamento = data.reduce((sum, p) => sum + parseFloat(p.valor_venda), 0);
+        document.getElementById("faturamento").textContent = faturamento.toFixed(2);
+        // TODO: receita e takeRate
+        renderPedidos();
+      })
+      .catch(err => {
+        console.error("Erro ao buscar pedidos:", err);
+        bodyPed.innerHTML = `<tr>
+          <td colspan="4" class="text-center text-danger">${err.message}</td>
+        </tr>`;
+      });
+  }
+
+  // Inicialização automática no carregamento da página
+  (function init() {
+    const hoje      = new Date();
+    const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+    const fimMes    = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+    const fmt       = d => `${String(d.getDate()).padStart(2,"0")}/` +
+                          `${String(d.getMonth()+1).padStart(2,"0")}/` +
+                          `${d.getFullYear()}`;
+
+    document.getElementById("selectedDates").textContent = `${fmt(inicioMes)} – ${fmt(fimMes)}`;
+    filterDataByDate(inicioMes, fimMes);
+  })();
   </script>  
 </body>
 </html>
