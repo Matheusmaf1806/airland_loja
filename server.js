@@ -56,7 +56,7 @@ app.post('/api/login', async (req, res) => {
   const { data: affiliate, error: affiliateError } = await supabase
     .from('affiliates')
     .select('*')
-    .eq('subdomain', subdomain)
+    .or(`subdomain.eq.${subdomain},subdomain.eq.${subdomain}.airland.com.br`)
     .single();
   
   if (affiliateError || !affiliate) {
