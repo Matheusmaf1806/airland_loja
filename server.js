@@ -17,7 +17,7 @@ const app = express();
 // para garantir uma chave forte; porém, recomenda-se idealmente ter uma variável específica para a sessão.
 app.use(cookieSession({
   name: 'session',
-  secret: process.env.SUPABASE_JWT_SECRET, // ou process.env.SESSION_SECRET se preferir uma variável separada
+  secret: process.env.SUPABASE_JWT_SECRET, // ou use process.env.SESSION_SECRET se preferir uma variável separada
   maxAge: 60 * 60 * 1000, // 1 hora
 }));
 
@@ -27,7 +27,10 @@ app.use(express.urlencoded({ extended: true }));
 // Aplica o middleware para extrair o subdomínio da requisição
 app.use(subdomainMiddleware);
 
-// Serve os arquivos estáticos da raiz (HTML, CSS, JS, imagens públicos)
+// Monta explicitamente a pasta "assets" para servir arquivos estáticos
+app.use('/assets', express.static(path.join(__dirname, 'assets')));
+
+// Serve os arquivos estáticos da raiz (HTML, etc.)
 app.use(express.static(path.join(__dirname)));
 
 // Protege as rotas da área "agente" para que somente usuários autenticados possam acessá-las.
