@@ -1,3 +1,5 @@
+// calendarComponent.js
+
 export function createCalendarComponent() {
   // Cria o contêiner principal do calendário
   const calendarEl = document.createElement("div");
@@ -19,6 +21,7 @@ export function createCalendarComponent() {
 
   const selectYear = document.createElement("select");
   selectYear.id = "calendar__year";
+  // Apenas os anos 2025 e 2026 (exemplo)
   [2025, 2026].forEach(y => {
     const opt = document.createElement("option");
     opt.value = y;
@@ -34,6 +37,7 @@ export function createCalendarComponent() {
   const bodyEl = document.createElement("div");
   bodyEl.classList.add("calendar__body");
 
+  // Dias da semana (iniciando em segunda)
   const daysEl = document.createElement("div");
   daysEl.classList.add("calendar__days");
   const days = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
@@ -44,6 +48,7 @@ export function createCalendarComponent() {
   });
   bodyEl.appendChild(daysEl);
 
+  // Container de datas
   const datesEl = document.createElement("div");
   datesEl.classList.add("calendar__dates");
   datesEl.id = "calendar__dates";
@@ -70,6 +75,7 @@ export function createCalendarComponent() {
   }
 
   function getWeekDayIndex(date) {
+    // Ajuste para que segunda seja índice 0 e domingo seja índice 6
     return (date.getDay() + 6) % 7;
   }
 
@@ -83,9 +89,10 @@ export function createCalendarComponent() {
     const totalDaysCurrent = getDaysInMonth(year, month);
     const firstDay = new Date(year, month, 1);
     const startWeekIndex = getWeekDayIndex(firstDay);
-    const totalCells = 42;
+    const totalCells = 42; // 6 linhas x 7 colunas
     let daysArray = [];
 
+    // Dias do mês anterior
     if (startWeekIndex > 0) {
       let prevMonth = month - 1;
       let prevYear = year;
@@ -95,15 +102,25 @@ export function createCalendarComponent() {
       }
       const totalDaysPrev = getDaysInMonth(prevYear, prevMonth);
       for (let i = startWeekIndex; i > 0; i--) {
-        const dayNum = totalDaysPrev - i + 1;
-        daysArray.push({ day: dayNum, inCurrent: false, date: new Date(prevYear, prevMonth, dayNum) });
+        let dayNum = totalDaysPrev - i + 1;
+        daysArray.push({
+          day: dayNum,
+          inCurrent: false,
+          date: new Date(prevYear, prevMonth, dayNum)
+        });
       }
     }
 
+    // Dias do mês atual
     for (let d = 1; d <= totalDaysCurrent; d++) {
-      daysArray.push({ day: d, inCurrent: true, date: new Date(year, month, d) });
+      daysArray.push({
+        day: d,
+        inCurrent: true,
+        date: new Date(year, month, d)
+      });
     }
 
+    // Dias do próximo mês para completar 42 células
     const remaining = totalCells - daysArray.length;
     if (remaining > 0) {
       let nextMonth = month + 1;
@@ -113,46 +130,39 @@ export function createCalendarComponent() {
         nextYear++;
       }
       for (let d = 1; d <= remaining; d++) {
-        daysArray.push({ day: d, inCurrent: false, date: new Date(nextYear, nextMonth, d) });
-      }
-    }
-
-    daysArray.forEach((obj, i) => {
-      const cell = document.createElement("div");
-      cell.classList.add("calendar__date");
-      if (!obj.inCurrent) cell.classList.add("calendar__date--grey");
-      const daySpan = document.createElement("span");
-      daySpan.textContent = obj.day.toString();
-      cell.appendChild(daySpan);
-      globalClickableDates.push(cell);
-      cell.addEventListener("click", () => handleDateClick(cell));
-      datesEl.appendChild(cell);
-    });
-
-    function handleDateClick(clickedEl) {
-      if (startSelected !== null && endSelected !== null) {
-        clearRange(globalClickableDates);
-      }
-      const index = globalClickableDates.indexOf(clickedEl);
-      if (startSelected === null) {
-        startSelected = index;
-        clickedEl.classList.add("calendar__date--selected", "calendar__date--first-date", "calendar__date--range-start");
-      } else if (endSelected === null) {
-        if (index === startSelected) {
-          clickedEl.classList.remove("calendar__date--selected", "calendar__date--first-date", "calendar__date--range-start");
-          startSelected = null;
-          return;
-        }
-        endSelected = index;
-        const startPos = Math.min(startSelected, endSelected);
-        const endPos = Math.max(startSelected, endSelected);
-        globalClickableDates.forEach((el, i) => {
-          if (i === startPos) el.classList.add("calendar__date--selected", "calendar__date--first-date", "calendar__date--range-start");
-          else if (i === endPos) el.classList.add("calendar__date--selected", "calendar__date--last-date", "calendar__date--range-end");
-          else if (i > startPos && i < endPos) el.classList.add("calendar__date--selected");
+        daysArray.push({
+          day: d,
+          inCurrent: false,
+          date: new Date(nextYear, nextMonth, d)
         });
       }
     }
+
+    // Renderiza as células do calendário
+    daysArray.forEach(obj => {
+      const cell = document.createElement("div");
+      cell.classList.add("calendar__date");
+      
+      // Se não é do mês atual, marca como "grey" (mas ainda clicável)
+      if (!obj.inCurrent) {
+        cell.classList.add("calendar__date--grey");
+      }
+
+      // Apenas exibe o dia (sem preço)
+      const daySpan = document.createElement("span");
+      daySpan.textContent = obj.day.toString();
+
+      // Insere o dia na célula
+      cell.appendChild(daySpan);
+
+      // Adiciona a célula na lista de clicáveis
+      globalClickableDates.push(cell);
+      cell.addEventListener("click", function() {
+        handleDateClick(cell, globalClickableDates);
+      });
+
+      datesEl.appendChild(cell);
+    });
   }
 
   function clearRange(clickableDates) {
@@ -169,19 +179,73 @@ export function createCalendarComponent() {
     endSelected = null;
   }
 
+  function handleDateClick(clickedEl, clickableDates) {
+    // Se já havia um intervalo selecionado, limpa tudo e inicia novamente
+    if (startSelected !== null && endSelected !== null) {
+      clearRange(clickableDates);
+    }
+    const index = clickableDates.indexOf(clickedEl);
+
+    // Se não há data inicial, marca a primeira
+    if (startSelected === null) {
+      startSelected = index;
+      clickedEl.classList.add(
+        "calendar__date--selected",
+        "calendar__date--first-date",
+        "calendar__date--range-start"
+      );
+    } else if (startSelected !== null && endSelected === null) {
+      // Se o usuário clicou de novo na mesma célula, desfaz a seleção
+      if (index === startSelected) {
+        clickedEl.classList.remove(
+          "calendar__date--selected",
+          "calendar__date--first-date",
+          "calendar__date--range-start"
+        );
+        startSelected = null;
+        return;
+      }
+      // Define a data final
+      endSelected = index;
+      const startPos = Math.min(startSelected, endSelected);
+      const endPos = Math.max(startSelected, endSelected);
+      clickableDates.forEach((el, i) => {
+        if (i === startPos) {
+          el.classList.add(
+            "calendar__date--selected",
+            "calendar__date--first-date",
+            "calendar__date--range-start"
+          );
+        } else if (i === endPos) {
+          el.classList.add(
+            "calendar__date--selected",
+            "calendar__date--last-date",
+            "calendar__date--range-end"
+          );
+        } else if (i > startPos && i < endPos) {
+          el.classList.add("calendar__date--selected");
+        }
+      });
+    }
+  }
+
+  // Atualiza o calendário ao mudar mês/ano
   function onChangeMonthYear() {
     const year = parseInt(selectYear.value, 10);
     const month = parseInt(selectMonth.value, 10);
+    // Limpa qualquer seleção anterior
     startSelected = null;
     endSelected = null;
     buildCalendar(year, month);
   }
 
+  // Listeners para as selects de mês e ano
   selectMonth.addEventListener("change", onChangeMonthYear);
   selectYear.addEventListener("change", onChangeMonthYear);
 
-  // Inicia
+  // Chama uma vez ao montar
   onChangeMonthYear();
 
+  // Retorna o elemento raiz do calendário para ser inserido na página
   return calendarEl;
 }
