@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -580,7 +579,6 @@
         options: {}
       });
     }
-  
     const ctx4 = document.getElementById("Chart4")?.getContext("2d");
     if (ctx4) {
       chart4 = new Chart(ctx4, {
@@ -625,82 +623,147 @@
     /**********************************
      * 4. Calendário + Filtro Dinâmico
      **********************************/
-    // 1) Referências
-  const btnOpen  = document.getElementById("openCalendarBtn");
-  const selDates = document.getElementById("selectedDates");
-
-  // 2) Cria o componente
-  const calEl = createCalendarComponent();
-  calEl.style.position = "absolute";
-  calEl.style.display  = "none";
-  calEl.style.zIndex   = "1000";
-  document.body.appendChild(calEl);
-
-  // 3) Posiciona ao lado do botão
-  function positionCal() {
-    const r = btnOpen.getBoundingClientRect();
-    calEl.style.top  = r.bottom + window.scrollY + "px";
-    calEl.style.left = r.left   + window.scrollX + "px";
-    // corrige estouro de borda
-    const cr = calEl.getBoundingClientRect();
-    if (cr.right  > window.innerWidth)  calEl.style.left = `${window.innerWidth - cr.width - 10}px`;
-    if (cr.bottom > window.innerHeight) calEl.style.top  = `${window.innerHeight - cr.height - 10}px`;
-  }
-
-  // 4) Mostrar/Esconder com clique
-  btnOpen.addEventListener("click", () => {
-    if (calEl.style.display === "none") {
-      positionCal();
-      calEl.style.display = "block";
-    } else {
-      calEl.style.display = "none";
+    const btnOpen  = document.getElementById("openCalendarBtn");
+    const selDates = document.getElementById("selectedDates");
+    btnOpen.style.marginBottom = "20px";
+    selDates.style.display     = "none";
+  
+    const calEl = createCalendarComponent();
+    calEl.style.position = "absolute";
+    calEl.style.display  = "none";
+    calEl.style.zIndex   = "1000";
+    document.body.appendChild(calEl);
+  
+    function positionCal() {
+      const r = btnOpen.getBoundingClientRect();
+      calEl.style.top  = r.bottom + window.scrollY + "px";
+      calEl.style.left = r.left   + window.scrollX + "px";
+      const cr = calEl.getBoundingClientRect();
+      if (cr.right  > window.innerWidth)  calEl.style.left = `${window.innerWidth - cr.width - 10}px`;
+      if (cr.bottom > window.innerHeight) calEl.style.top  = `${window.innerHeight - cr.height - 10}px`;
     }
-  });
-
-  // 5) Clique fora fecha calendário
-  document.addEventListener("click", (e) => {
-    if (!calEl.contains(e.target) && e.target !== btnOpen) {
+  
+    // Abre/fecha no clique
+    btnOpen.addEventListener("click", () => {
+      if (calEl.style.display === "none") {
+        positionCal();
+        calEl.style.display = "block";
+      } else {
+        calEl.style.display = "none";
+      }
+    });
+  
+    // Fecha ao clicar fora
+    document.addEventListener("click", e => {
+      if (!calEl.contains(e.target) && e.target !== btnOpen) {
+        calEl.style.display = "none";
+      }
+    });
+  
+    // Botão "Aplicar"
+    const btnApply = calEl.querySelector(".calendar__button--primary");
+    btnApply.addEventListener("click", () => {
+      const sel = Array.from(calEl.querySelectorAll(".calendar__date--selected"));
+      if (sel.length < 1) return;
+  
+      const year  = +calEl.querySelector("#calendar__year").value;
+      const month = +calEl.querySelector("#calendar__month").value;
+      const days  = sel.map(d => +d.textContent);
+      const sDate = new Date(year, month, Math.min(...days));
+      const eDate = new Date(year, month, Math.max(...days));
+      const fmt   = d => `${String(d.getDate()).padStart(2,"0")}/`+
+                        `${String(d.getMonth()+1).padStart(2,"0")}/`+
+                        `${d.getFullYear()}`;
+  
+      selDates.textContent = `${fmt(sDate)} – ${fmt(eDate)}`;
+      selDates.style.display = "inline";
+  
+      filterDataByDate(sDate, eDate);
       calEl.style.display = "none";
+    });
+  
+    /**********************************
+     * 5. Paginação e Renderização de Pedidos
+     **********************************/
+    const bodyPed  = document.getElementById("pedidosBody");
+    const btnPrev  = document.getElementById("prevPageBtn");
+    const btnNext  = document.getElementById("nextPageBtn");
+    const infoPag  = document.getElementById("paginationInfo");
+    const perPage  = 15;
+    let pedidosData  = [];
+    let currentPage  = 1;
+  
+    function renderPedidos(page = 1) {
+      bodyPed.innerHTML = "";
+      const slice = pedidosData.slice((page - 1) * perPage, page * perPage);
+      if (!slice.length) {
+        bodyPed.innerHTML = `<tr><td colspan="4" class="text-center">Nenhum pedido encontrado.</td></tr>`;
+      } else {
+        slice.forEach(p => {
+          bodyPed.insertAdjacentHTML('beforeend', `
+            <tr>
+              <td>${p.nome_comprador}</td>
+              <td>${p.efetivado_por}</td>
+              <td>R$ ${parseFloat(p.valor_venda).toFixed(2)}</td>
+              <td class="text-end">${p.status}</td>
+            </tr>
+          `);
+        });
+      }
+      const totalPages = Math.max(1, Math.ceil(pedidosData.length / perPage));
+      infoPag.textContent = `Página ${page} de ${totalPages} (${pedidosData.length} registros)`;
+      btnPrev.disabled = page <= 1;
+      btnNext.disabled = page >= totalPages;
     }
-  });
-
-  // 6) Botão “Aplicar”
-  const btnApply = calEl.querySelector(".calendar__button--primary");
-  btnApply.addEventListener("click", () => {
-    const selected = calEl.querySelectorAll(".calendar__date--selected");
-    if (selected.length < 1) return;
-
-    // datas nos formatos ISO e display DD/MM/YYYY
-    const year  = +calEl.querySelector("#calendar__year").value;
-    const month = +calEl.querySelector("#calendar__month").value;
-    const days  = Array.from(selected).map(d => +d.textContent);
-    const sDate = new Date(year, month, Math.min(...days));
-    const eDate = new Date(year, month, Math.max(...days));
-    const fmt   = d => `${String(d.getDate()).padStart(2,"0")}/`+
-                      `${String(d.getMonth()+1).padStart(2,"0")}/`+
-                      `${d.getFullYear()}`;
-    selDates.textContent = `${fmt(sDate)} – ${fmt(eDate)}`;
-    selDates.style.display = "inline";
-
-    // busca no servidor e atualiza tabela
-    filterDataByDate(sDate, eDate);
-
-    calEl.style.display = "none";
-  });
-
-  // 7) Inicialização na carga da página
-  (function init() {
-    const hoje      = new Date();
-    const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-    const fimMes    = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0);
-    const fmt       = d => `${String(d.getDate()).padStart(2,"0")}/`+
-                          `${String(d.getMonth()+1).padStart(2,"0")}/`+
-                          `${d.getFullYear()}`;
-
-    selDates.textContent = `${fmt(inicioMes)} – ${fmt(fimMes)}`;
-    selDates.style.display = "inline";
-    filterDataByDate(inicioMes, fimMes);
-  })();
-  </script>  
+  
+    btnPrev.addEventListener("click", () => { if (currentPage > 1) renderPedidos(--currentPage); });
+    btnNext.addEventListener("click", () => {
+      const totalPages = Math.ceil(pedidosData.length / perPage);
+      if (currentPage < totalPages) renderPedidos(++currentPage);
+    });
+  
+    function filterDataByDate(startDate, endDate) {
+      const fmtISO = d => d.toISOString().split("T")[0];
+      const start = fmtISO(startDate), end = fmtISO(endDate);
+  
+      fetch(`/api/agent/pedidos?startDate=${start}&endDate=${end}`)
+        .then(res => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+          if (!res.headers.get('content-type')?.includes('application/json')) {
+            throw new Error('Resposta não é JSON');
+          }
+          return res.json();
+        })
+        .then(data => {
+          pedidosData = data;
+          currentPage = 1;
+          document.getElementById("clientCount").textContent = data.length;
+          const faturamento = data.reduce((sum, p) => sum + parseFloat(p.valor_venda), 0);
+          document.getElementById("faturamento").textContent = faturamento.toFixed(2);
+          renderPedidos();
+        })
+        .catch(err => {
+          console.error("Erro ao buscar pedidos:", err);
+          bodyPed.innerHTML = `<tr>
+            <td colspan="4" class="text-center text-danger">${err.message}</td>
+          </tr>`;
+        });
+    }
+  
+    /**********************************
+     * 6. Inicialização automática
+     **********************************/
+    (function init() {
+      const hoje      = new Date();
+      const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      const fimMes    = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0);
+      const fmt       = d => `${String(d.getDate()).padStart(2,"0")}/`+
+                            `${String(d.getMonth()+1).padStart(2,"0")}/`+
+                            `${d.getFullYear()}`;
+      selDates.textContent = `${fmt(inicioMes)} – ${fmt(fimMes)}`;
+      selDates.style.display = "inline";
+      filterDataByDate(inicioMes, fimMes);
+    })();
+  </script>    
 </body>
 </html>
