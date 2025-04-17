@@ -511,8 +511,9 @@
                         <tr>
                           <th class="service"><h6 class="text-sm text-medium">Tipo</h6></th>
                           <th class="desc"><h6 class="text-sm text-medium">Item</h6></th>
-                          <th class="qty"><h6 class="text-sm text-medium">Total</h6></th>
-                          <th class="amount"><h6 class="text-sm text-medium">Valor (R$)</h6></th>
+                          <!-- Valor agora fica antes da quantidade e com text-end -->
+                          <th class="amount text-end"><h6 class="text-sm text-medium">Valor (R$)</h6></th>
+                          <th class="qty"><h6 class="text-sm text-medium">Quantidade</h6></th>
                         </tr>
                       </thead>
                       <tbody id="invoiceTableBody">
@@ -541,7 +542,7 @@
                         </tr>
                       </tfoot>
                     </table>
-                  </div>
+                  </div>                  
                   <div class="note-wrapper warning-alert py-4 px-sm-3 px-lg-5">
                     <div class="alert">
                       <h5 class="text-bold mb-15">Notes:</h5>
