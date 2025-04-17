@@ -66,6 +66,19 @@
         overflow: hidden;        /* esconde o excedente */
         text-overflow: ellipsis; /* adiciona "..." automaticamente */
       }
+
+      /* container com padding interno para “margem” */
+      .map-container {
+        padding: 0 1rem;        /* 16px de cada lado, troque por 15px se preferir */
+        box-sizing: border-box; /* garante que o padding conte dentro dos 100% */
+        overflow: hidden;       /* corta qualquer excesso do mapa */
+      }
+
+      /* o próprio mapa ocupa 100% do container e altura fixa */
+      .map-container #map {
+        width: 100%;
+        height: 400px;
+      }
     </style>
     
   </head>
@@ -444,7 +457,9 @@
                   </div>
                 </div>
                 <!-- Mapa (mantido conforme o layout original) -->
-                <div id="map" style="width: 100%; height: 400px"></div>
+                <div class="map-container">
+                  <div id="map"></div>
+                </div>                
                 <!-- Tabela de Pedidos por Região -->
                 <div class="table-wrapper">
                   <table class="table">
