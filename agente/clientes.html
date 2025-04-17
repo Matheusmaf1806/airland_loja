@@ -436,7 +436,7 @@
       const paginationEl = document.getElementById('pagination');
 
       function fetchClientes() {
-        fetch('/api/agent/clientes')
+        fetch('/api/agent/pedidos')
           .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
           .then(data => {
             clientesData = data;
