@@ -446,6 +446,15 @@
     // ===== 1) Configuração e abertura do calendário =====
     const btnOpen    = document.getElementById('openCalendarBtn');
     const selDatesEl = document.getElementById('selectedDates');
+
+    // Quebra “Datas selecionadas” em duas linhas, alinhado à direita:
+    if (selDatesEl) {
+      const wrapper = selDatesEl.parentElement;
+      wrapper.style.display = 'flex';
+      wrapper.style.flexDirection = 'column';
+      wrapper.style.alignItems = 'flex-end';
+    }
+
     const calEl      = createCalendarComponent();
     Object.assign(calEl.style, { position:'absolute', display:'none', zIndex:'1000' });
     document.body.appendChild(calEl);
