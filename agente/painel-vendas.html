@@ -539,32 +539,17 @@
 
   <script>
     /**********************************
-     * Helpers: formatações
+     * 1. Mapa de Estados do Brasil
      **********************************/
-    // Formatação de moeda BRL
-    const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-    // Formata nome (primeiro e último) com primeira letra maiúscula
-    function formatName(fullName) {
-      const parts = fullName.trim().split(/\s+/);
-      const first = parts[0] || '';
-      const last = parts.length > 1 ? parts[parts.length - 1] : '';
-      const cap = s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
-      return `${cap(first)}${last ? ' ' + cap(last) : ''}`;
-    }
-  
-    /**********************************
-     * 1. Ativação do Mapa (jsVectorMap)
-     **********************************/
-    const map = new jsVectorMap({
-      map: "world_merc",
-      selector: "#map",
+    const mapChart = new jsVectorMap({
+      map: 'brazil_merc',
+      selector: '#map',
       zoomButtons: true,
-      focusOn: { region: "BR" },
       regionStyle: {
-        initial: { fill: "#d1d5db" },
-        selected: { fill: "#4A6CF7" }
+        initial: { fill: '#d1d5db' },
+        selected: { fill: '#4A6CF7' },
       },
-      selectedRegions: []
+      selectedRegions: [], // começa sem nenhum estado selecionado
     });
   
     /**********************************
@@ -619,13 +604,9 @@
         data: {
           labels: ["Jan","Fev","Mar","Abr","Mai","Jun"],
           datasets: [{
-            backgroundColor: "#4A6CF7",
-            borderColor: "transparent",
             borderRadius: 20,
             data: [600,700,1000,700,650,800],
           },{
-            backgroundColor: "#d50100",
-            borderColor: "transparent",
             borderRadius: 20,
             data: [690,740,720,1120,876,900],
           }]
@@ -635,17 +616,17 @@
     }
   
     /**********************************
-     * 3. Lógica do Tema (Light/Dark)
+     * 3. Tema (Light/Dark)
      **********************************/
     const lightTheme = { darkBorder: "rgba(143,146,161,.1)", darkColor: "#5A6A85" },
-          darkTheme  = { darkBorder: "#2b2b42",       darkColor: "#838C9A" };
+          darkTheme  = { darkBorder: "#2b2b42", darkColor: "#838C9A" };
     function applyTheme(t) {
       [chart3, chart4].forEach(ch => {
         if (!ch) return;
-        ch.options.scales.y.grid.color   = t.darkBorder;
+        ch.options.scales.y.grid.color = t.darkBorder;
         ch.options.scales.y.grid.borderColor = t.darkBorder;
-        ch.options.scales.x.ticks.color  = t.darkColor;
-        ch.options.scales.y.ticks.color  = t.darkColor;
+        ch.options.scales.x.ticks.color = t.darkColor;
+        ch.options.scales.y.ticks.color = t.darkColor;
         ch.update();
       });
     }
@@ -673,11 +654,11 @@
       calEl.style.left = r.left   + window.scrollX + "px";
       requestAnimationFrame(() => {
         const cr = calEl.getBoundingClientRect();
-        if (cr.right  > window.innerWidth) {
+        if (cr.right  > window.innerWidth)  {
           calEl.style.left = `${parseFloat(calEl.style.left) - (cr.right - window.innerWidth + 10)}px`;
         }
         if (cr.bottom > window.innerHeight) {
-          calEl.style.top  = `${parseFloat(calEl.style.top)  - (cr.bottom - window.innerHeight + 10)}px`;
+          calEl.style.top  = `${parseFloat(calEl.style.top ) - (cr.bottom - window.innerHeight + 10)}px`;
         }
       });
     }
@@ -697,26 +678,26 @@
       }
     });
   
-    const btnApply = calEl.querySelector(".calendar__button--primary");
-    btnApply.addEventListener("click", () => {
-      const sel = Array.from(calEl.querySelectorAll(".calendar__date--selected"));
-      if (sel.length < 1) return;
+    calEl.querySelector(".calendar__button--primary")
+      .addEventListener("click", () => {
+        const sel = Array.from(calEl.querySelectorAll(".calendar__date--selected"));
+        if (!sel.length) return;
   
-      const year  = +calEl.querySelector("#calendar__year").value;
-      const month = +calEl.querySelector("#calendar__month").value;
-      const days  = sel.map(d => +d.textContent);
-      const sDate = new Date(year, month, Math.min(...days));
-      const eDate = new Date(year, month, Math.max(...days));
-      const fmt   = d => `${String(d.getDate()).padStart(2,"0")}/`+
-                        `${String(d.getMonth()+1).padStart(2,"0")}/`+
-                        `${d.getFullYear()}`;
+        const year  = +calEl.querySelector("#calendar__year").value;
+        const month = +calEl.querySelector("#calendar__month").value;
+        const days  = sel.map(d => +d.textContent);
+        const sDate = new Date(year, month, Math.min(...days));
+        const eDate = new Date(year, month, Math.max(...days));
+        const fmt   = d => `${String(d.getDate()).padStart(2,"0")}/`+
+                          `${String(d.getMonth()+1).padStart(2,"0")}/`+
+                          `${d.getFullYear()}`;
   
-      selDates.textContent = `${fmt(sDate)} – ${fmt(eDate)}`;
-      selDates.style.display = "inline";
+        selDates.textContent = `${fmt(sDate)} – ${fmt(eDate)}`;
+        selDates.style.display = "inline";
   
-      filterDataByDate(sDate, eDate);
-      calEl.style.display = "none";
-    });
+        filterDataByDate(sDate, eDate);
+        calEl.style.display = "none";
+      });
   
     /**********************************
      * 5. Paginação e Renderização de Pedidos
@@ -736,23 +717,29 @@
         bodyPed.innerHTML = `<tr><td colspan="4" class="text-center">Nenhum pedido encontrado.</td></tr>`;
       } else {
         slice.forEach(p => {
-          const nome  = formatName(p.nome_comprador);
-          const valor = currencyFormatter.format(parseFloat(p.valor_venda));
-          const raw   = String(p.status).toLowerCase();
-          let statusClass, statusLabel;
-          if (raw === "pagos") {
-            statusClass = "status-btn success-btn"; statusLabel = "Pagos";
-          } else if (raw === "recusado") {
-            statusClass = "status-btn close-btn";   statusLabel = "Recusado";
-          } else {
-            statusClass = "status-btn active-btn";  statusLabel = raw.charAt(0).toUpperCase() + raw.slice(1);
-          }
-          bodyPed.insertAdjacentHTML("beforeend", `
+          // Formata nome: só primeiro e último, com inicial maiúscula
+          const parts = p.nome_comprador.split(' ');
+          const nome  = `${parts[0]} ${parts[parts.length-1]}`;
+          const nomeFmt = nome.charAt(0).toUpperCase() + nome.slice(1).toLowerCase();
+  
+          // Formata valor em R$ pt-BR
+          const valorFmt = new Intl.NumberFormat('pt-BR', {
+            style: 'currency', currency: 'BRL'
+          }).format(p.valor_venda);
+  
+          // Mapeia status para classe
+          const st = p.status.toLowerCase();
+          let cls = 'status-btn active-btn';
+          if (st === 'pago')      cls = 'status-btn success-btn';
+          else if (st === 'recusado') cls = 'status-btn close-btn';
+          const statusFmt = st.charAt(0).toUpperCase() + st.slice(1);
+  
+          bodyPed.insertAdjacentHTML('beforeend', `
             <tr>
-              <td>${nome}</td>
+              <td>${nomeFmt}</td>
               <td>${p.efetivado_por}</td>
-              <td>${valor}</td>
-              <td class="text-end"><span class="${statusClass}">${statusLabel}</span></td>
+              <td>${valorFmt}</td>
+              <td class="text-end"><span class="${cls}">${statusFmt}</span></td>
             </tr>
           `);
         });
@@ -763,69 +750,77 @@
       btnNext.disabled = page >= totalPages;
     }
   
-    /**
-     * Monta tabela de Pedidos por Região (UF) e pinta estados no mapa
-     */
-    function renderRegiao(data) {
-      const resumo = data.reduce((acc, p) => {
-        const uf = p.uf || "ND";
-        acc[uf] = (acc[uf] || 0) + parseFloat(p.valor_venda);
-        return acc;
-      }, {});
-      const total = Object.values(resumo).reduce((sum, v) => sum + v, 0);
-      const tbody  = document.getElementById("regiaoBody");
-      tbody.innerHTML = "";
-      const estados = [];
-      Object.entries(resumo).forEach(([uf, valor]) => {
-        const perc = total > 0 ? (valor / total * 100).toFixed(1) : "0.0";
-        tbody.insertAdjacentHTML("beforeend", `
-          <tr>
-            <td><p class="text-sm">${uf}</p></td>
-            <td><p class="text-sm">${currencyFormatter.format(valor)}</p></td>
-            <td><p class="text-sm">${perc}%</p></td>
-          </tr>
-        `);
-        estados.push(uf);
-      });
-      map.setSelectedRegions(estados);
-    }
-  
-    btnPrev.addEventListener("click", () => { if (currentPage > 1) renderPedidos(--currentPage); });
+    btnPrev.addEventListener("click", () => {
+      if (currentPage > 1) renderPedidos(--currentPage);
+    });
     btnNext.addEventListener("click", () => {
       const totalPages = Math.ceil(pedidosData.length / perPage);
       if (currentPage < totalPages) renderPedidos(++currentPage);
     });
   
+    /**********************************
+     * 6. Tabela de Pedidos por Região
+     **********************************/
+    function renderRegiao(data) {
+      const resumo = data.reduce((acc, p) => {
+        const uf = p.uf || 'ND';
+        acc[uf] = (acc[uf] || 0) + parseFloat(p.valor_venda);
+        return acc;
+      }, {});
+      const total = Object.values(resumo).reduce((sum, v) => sum + v, 0);
+  
+      // Atualiza tabela
+      const tbody = document.getElementById('regiaoBody');
+      tbody.innerHTML = '';
+      Object.entries(resumo).forEach(([uf, valor]) => {
+        const perc = total > 0 ? `${(valor / total * 100).toFixed(1)}%` : '0%';
+        const valorFmt = new Intl.NumberFormat('pt-BR', {
+          style: 'currency', currency: 'BRL'
+        }).format(valor);
+        tbody.insertAdjacentHTML('beforeend', `
+          <tr>
+            <td><p class="text-sm">${uf}</p></td>
+            <td><p class="text-sm">${valorFmt}</p></td>
+            <td><p class="text-sm">${perc}</p></td>
+          </tr>
+        `);
+      });
+  
+      // Destaca apenas os estados com resultados no mapa
+      mapChart.setSelectedRegions(Object.keys(resumo));
+    }
+  
+    /**********************************
+     * 7. Busca e Filtra Pedidos via API
+     **********************************/
     function filterDataByDate(startDate, endDate) {
       const fmtISO = d => d.toISOString().split("T")[0];
-      const start  = fmtISO(startDate), end = fmtISO(endDate);
-      fetch(`/api/agent/pedidos?startDate=${start}&endDate=${end}`)
+      fetch(`/api/agent/pedidos?startDate=${fmtISO(startDate)}&endDate=${fmtISO(endDate)}`, {
+        credentials: 'include'
+      })
         .then(res => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-          if (!res.headers.get("content-type")?.includes("application/json")) {
-            throw new Error("Resposta não é JSON");
-          }
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
           return res.json();
         })
         .then(data => {
           pedidosData = data;
           currentPage = 1;
+          // Atualiza métricas
           document.getElementById("clientCount").textContent = data.length;
-          const faturamento = data.reduce((sum, p) => sum + parseFloat(p.valor_venda), 0);
-          document.getElementById("faturamento").textContent = currencyFormatter.format(faturamento);
+          const fatur = data.reduce((sum, p) => sum + parseFloat(p.valor_venda), 0);
+          document.getElementById("faturamento").textContent =
+            new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' }).format(fatur);
           renderPedidos();
           renderRegiao(data);
         })
         .catch(err => {
           console.error("Erro ao buscar pedidos:", err);
-          bodyPed.innerHTML = `<tr>
-            <td colspan="4" class="text-center text-danger">${err.message}</td>
-          </tr>`;
+          bodyPed.innerHTML = `<tr><td colspan="4" class="text-center text-danger">${err.message}</td></tr>`;
         });
     }
   
     /**********************************
-     * 6. Inicialização automática
+     * 8. Inicialização Automática
      **********************************/
     (function init() {
       const hoje      = new Date();
@@ -838,6 +833,6 @@
       selDates.style.display = "inline";
       filterDataByDate(inicioMes, fimMes);
     })();
-  </script>        
+  </script>         
 </body>
 </html>
