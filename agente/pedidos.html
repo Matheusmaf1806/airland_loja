@@ -437,16 +437,11 @@
     const formatBRL = val =>
       Number(val).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   
-    // ====== 1) Configuração e abertura do calendário ======
+    // ===== 1) Calendário =====
     const btnOpen    = document.getElementById('openCalendarBtn');
     const selDatesEl = document.getElementById('selectedDates');
     const calEl      = createCalendarComponent();
-  
-    Object.assign(calEl.style, {
-      position: 'absolute',
-      display:  'none',
-      zIndex:   '1000'
-    });
+    Object.assign(calEl.style, { position:'absolute', display:'none', zIndex:'1000' });
     document.body.appendChild(calEl);
   
     function positionCal() {
@@ -477,7 +472,7 @@
   
     calEl.querySelector('.calendar__button--primary')
       .addEventListener('click', () => {
-        const sel   = Array.from(calEl.querySelectorAll('.calendar__date--selected'));
+        const sel = Array.from(calEl.querySelectorAll('.calendar__date--selected'));
         if (!sel.length) return;
   
         const year  = +calEl.querySelector('#calendar__year').value;
@@ -486,29 +481,32 @@
   
         const sDate = new Date(year, month, Math.min(...days));
         const eDate = new Date(year, month, Math.max(...days));
-  
         const fmt = d =>
           `${String(d.getDate()).padStart(2,'0')}/` +
           `${String(d.getMonth()+1).padStart(2,'0')}/` +
           `${d.getFullYear()}`;
   
         selDatesEl.textContent = `${fmt(sDate)} – ${fmt(eDate)}`;
-        fetchPedidos(sDate, eDate);
+        fetchSupplierPedidos(sDate, eDate);
         calEl.style.display = 'none';
       });
   
-    // ====== 2) Buscar e renderizar pedidos ======
+    // ===== 2) Buscar e renderizar pedidos do supplier_pedidos =====
+    // OBS: certifique-se de que sua <tbody> tem id="pedidosBody"
     const bodyPed = document.getElementById('pedidosBody');
   
-    function fetchPedidos(startDate, endDate) {
+    function fetchSupplierPedidos(startDate, endDate) {
       const iso = d => d.toISOString().split('T')[0];
-      fetch(`/api/agent/pedidos?startDate=${iso(startDate)}&endDate=${iso(endDate)}`)
-        .then(r => r.json())
+      fetch(`/api/supplier_pedidos?startDate=${iso(startDate)}&endDate=${iso(endDate)}`)
+        .then(r => {
+          if (!r.ok) throw new Error(`Status ${r.status}`);
+          return r.json();
+        })
         .then(data => renderPedidos(data))
         .catch(err => {
           bodyPed.innerHTML = `
             <tr><td colspan="6" class="text-center text-danger">
-              Erro: ${err.message}
+              Erro ao carregar pedidos: ${err.message}
             </td></tr>
           `;
         });
@@ -525,34 +523,41 @@
       }
   
       data.forEach(p => {
-        // Formata nome: primeiro + último
-        const parts = p.nome.trim().split(/\s+/);
+        // ID direto
+        const id = p.id;
+        // Nome (primeiro + último)
+        const parts = (p.nome || '').trim().split(/\s+/);
         const nomeFormatted = parts.length > 1
           ? `${parts[0]} ${parts[parts.length - 1]}`
-          : parts[0];
+          : parts[0] || '';
   
-        // Classe de status
+        // Meio de pagamento
+        const meio = p.meio_pgto || '';
+  
+        // Valor
+        const valor = formatBRL(parseFloat(p.valor_venda) || 0);
+  
+        // Status
         const key = (p.status || '').toLowerCase();
         let cls = 'active-btn';
         if (key === 'pago')     cls = 'success-btn';
         if (key === 'recusado') cls = 'close-btn';
+        const statusText = key.charAt(0).toUpperCase() + key.slice(1);
   
-        // Botão de ação
+        // Ação (link para detalhe)
         const actionBtn = `
-          <button onclick="window.location.href='/agente/pedido/${p.id}'">
+          <button onclick="window.location.href='/agente/pedido/${id}'">
             <i class="fa-solid fa-arrow-up-right-from-square"></i>
           </button>`;
   
         bodyPed.insertAdjacentHTML('beforeend', `
           <tr>
-            <td><p>${p.id}</p></td>
+            <td><p>${id}</p></td>
             <td><p>${nomeFormatted}</p></td>
-            <td><p>${p.meio_pgto}</p></td>
-            <td><p>${formatBRL(parseFloat(p.valor_venda) || 0)}</p></td>
+            <td><p>${meio}</p></td>
+            <td><p>${valor}</p></td>
             <td>
-              <span class="status-btn ${cls}">
-                ${key.charAt(0).toUpperCase() + key.slice(1)}
-              </span>
+              <span class="status-btn ${cls}">${statusText}</span>
             </td>
             <td>${actionBtn}</td>
           </tr>
@@ -560,20 +565,19 @@
       });
     }
   
-    // ====== 3) Inicialização automática (mês atual) ======
+    // ===== 3) Inicialização automática (mês atual) =====
     (function init() {
       const hoje      = new Date();
       const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
       const fimMes    = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
-  
       const fmt = d =>
         `${String(d.getDate()).padStart(2,'0')}/` +
         `${String(d.getMonth()+1).padStart(2,'0')}/` +
         `${d.getFullYear()}`;
   
       selDatesEl.textContent = `${fmt(inicioMes)} – ${fmt(fimMes)}`;
-      fetchPedidos(inicioMes, fimMes);
+      fetchSupplierPedidos(inicioMes, fimMes);
     })();
-  </script>  
+  </script>    
 </body>
 </html>
