@@ -614,102 +614,103 @@
     <script src="/assets/js/main.js"></script>
 
     <script>
-      // Extrai rawSearch (tudo após o "?") e também tenta params.get('id')
-      const rawSearch = window.location.search.substring(1);
-      const params    = new URLSearchParams(window.location.search);
-      let   pedidoId  = params.get('id') || rawSearch;
-      if (!pedidoId) {
-        console.error('ID do pedido não informado na URL');
-        // aqui você pode exibir um alerta ou redirecionar
-      }
-    
-      // Helpers para formatação
-      function formatDate(d) {
-        const dt = new Date(d);
-        return [
-          String(dt.getDate()).padStart(2, '0'),
-          String(dt.getMonth() + 1).padStart(2, '0'),
-          dt.getFullYear()
-        ].join('/');
-      }
-      function toBRL(v) {
-        return Number(v).toLocaleString('pt-BR', {
-          style: 'currency',
-          currency: 'BRL'
+    // Extrai rawSearch (tudo após o "?") e também tenta params.get('id')
+    const rawSearch = window.location.search.substring(1);
+    const params    = new URLSearchParams(window.location.search);
+    const pedidoId  = params.get('id') || rawSearch;
+    if (!pedidoId) {
+      console.error('ID do pedido não informado na URL');
+    }
+  
+    // Helpers para formatação
+    function formatDate(d) {
+      const dt = new Date(d);
+      return [
+        String(dt.getDate()).padStart(2, '0'),
+        String(dt.getMonth() + 1).padStart(2, '0'),
+        dt.getFullYear()
+      ].join('/');
+    }
+    function toBRL(v) {
+      return Number(v).toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+      });
+    }
+  
+    // Preenche logo da empresa
+    fetch('/api/me')
+      .then(r => r.json())
+      .then(me => {
+        document.getElementById('companyLogo').src = me.logo_url;
+      })
+      .catch(err => console.error('Erro ao carregar logo:', err));
+  
+    // Busca pedido por ID
+    fetch(`/api/agent/pedidos?id=${pedidoId}`)
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then(p => {
+        // Header
+        document.getElementById('dataPgto').textContent = formatDate(p.data_pgto);
+        document.getElementById('orderId').textContent  = p.id;
+  
+        // Cliente
+        document.getElementById('clienteNome').textContent     = p.nome;
+        document.getElementById('clienteTelefone').textContent = p.telefone;
+        document.getElementById('clienteEmail').textContent    = p.email;
+  
+        // Pagamento
+        document.getElementById('nomeComprador').textContent = p.nome_comprador || '–';
+        document.getElementById('metodoPgto').textContent    = p.meio_pgto         || '–';
+  
+        const bandeiraBlock = document.getElementById('bandeiraParcelas');
+        bandeiraBlock.style.display = 'none';
+        const meio = (p.meio_pgto || '').toLowerCase();
+        if (meio === 'credit' || meio === 'credito') {
+          document.getElementById('bandeiraCartao').textContent = p.bandeira_cartao || '–';
+          document.getElementById('parcelas').textContent      = p.parcelas      || '–';
+          bandeiraBlock.style.display = '';
+        }
+  
+        document.getElementById('dataNascimento').textContent = formatDate(p.data_nascimento);
+  
+        // Itens
+        const itens  = JSON.parse(p.pedido || '[]');
+        const tbody  = document.getElementById('invoiceTableBody');
+        tbody.innerHTML = '';
+        let subtotal = 0;
+  
+        itens.forEach(it => {
+          const qtd = (it.adults || 0) + (it.children || 0);
+          const val = (it.adults   || 0) * (it.basePriceAdult || 0)
+                    + (it.children || 0) * (it.basePriceChild || 0);
+          subtotal += val;
+  
+          tbody.insertAdjacentHTML('beforeend',
+            `<tr>
+               <td><p class="text-sm">${it.type}</p></td>
+               <td><p class="text-sm">${it.hotelName} – ${it.roomName}</p></td>
+               <td></td>
+               <td><p class="text-sm">${qtd}</p></td>
+               <td><p class="text-sm">${toBRL(val)}</p></td>
+             </tr>`);
         });
-      }
-    
-      // Preenche logo da empresa
-      fetch('/api/me')
-        .then(r => r.json())
-        .then(me => {
-          document.getElementById('companyLogo').src = me.logo_url;
-        })
-        .catch(err => console.error('Erro ao carregar logo:', err));
-    
-      // Busca pedido por ID
-      fetch(`/api/agent/pedidos?id=${pedidoId}`)
-        .then(r => {
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          return r.json();
-        })
-        .then(p => {
-          // Header
-          document.getElementById('dataPgto').textContent = formatDate(p.data_pgto);
-          document.getElementById('orderId').textContent  = p.id;
-    
-          // Cliente
-          document.getElementById('clienteNome').textContent     = p.nome;
-          document.getElementById('clienteTelefone').textContent = p.telefone;
-          document.getElementById('clienteEmail').textContent    = p.email;
-    
-          // Pagamento
-          document.getElementById('nomeComprador').textContent = p.name_comprador || '–';
-          const meio = (p.meio_pgto || '').toLowerCase();
-          document.getElementById('metodoPgto').textContent = p.meio_pgto || '–';
-    
-          if (meio === 'credit' || meio === 'credito') {
-            document.getElementById('bandeiraCartao').textContent = p.bandeira_cartao || '–';
-            document.getElementById('parcelas').textContent      = p.parcelas || '–';
-            document.getElementById('bandeiraParcelas').style.display = 'block';
-          }
-    
-          document.getElementById('dataNascimento').textContent = formatDate(p.data_nascimento);
-    
-          // Itens
-          const itens  = JSON.parse(p.pedido || '[]');
-          let subtotal = 0;
-          const tbody  = document.getElementById('invoiceTableBody');
-          tbody.innerHTML = '';
-    
-          itens.forEach(it => {
-            const qtd = (it.adults || 0) + (it.children || 0);
-            const val = (it.adults  || 0) * (it.basePriceAdult || 0)
-                      + (it.children|| 0) * (it.basePriceChild || 0);
-            subtotal += val;
-    
-            tbody.insertAdjacentHTML('beforeend',
-              `<tr>
-                 <td><p class="text-sm">${it.type}</p></td>
-                 <td><p class="text-sm">${it.hotelName} – ${it.roomName}</p></td>
-                 <td></td>
-                 <td><p class="text-sm">${qtd}</p></td>
-                 <td><p class="text-sm">${toBRL(val)}</p></td>
-               </tr>`);
-          });
-    
-          // Totais
-          document.getElementById('subtotal').textContent = toBRL(subtotal);
-    
-          const desconto = meio === 'pix' ? subtotal * 0.05 : 0;
-          document.getElementById('desconto').textContent = desconto
-            ? `${Math.round((desconto / subtotal) * 100)}% (${toBRL(desconto)})`
-            : '0%';
-    
-          document.getElementById('cupom').textContent = '0';
-          document.getElementById('total').textContent = toBRL(subtotal - desconto);
-        })
-        .catch(err => console.error('Erro ao carregar pedido:', err));
-    </script>    
+  
+        // Totais
+        document.getElementById('subtotal').textContent = toBRL(subtotal);
+  
+        const desconto = meio === 'pix' ? subtotal * 0.05 : 0;
+        document.getElementById('desconto').textContent = desconto
+          ? `${Math.round((desconto / subtotal) * 100)}% (${toBRL(desconto)})`
+          : '0%';
+  
+        document.getElementById('cupom').textContent = '0';
+        document.getElementById('total').textContent = toBRL(subtotal - desconto);
+      })
+      .catch(err => console.error('Erro ao carregar pedido:', err));
+  </script>    
   </body>
 </html>
