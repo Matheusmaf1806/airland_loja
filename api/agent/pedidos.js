@@ -7,26 +7,45 @@ const supabase = createClient(
 
 module.exports = async (req, res) => {
   try {
-    const { startDate, endDate, id } = req.query;
+    // pull out the known params
+    let { startDate, endDate, id } = req.query;
+
+    // if no explicit id, check for a single key that looks like a date
+    if (!id) {
+      const otherKeys = Object.keys(req.query).filter(k => k !== 'startDate' && k !== 'endDate');
+      if (otherKeys.length === 1 && /^\d{4}-\d{2}-\d{2}$/.test(otherKeys[0])) {
+        // treat "?2023-04-17" as startDate AND endDate
+        startDate = endDate = otherKeys[0];
+      }
+    }
 
     let data, error;
 
     if (id) {
-      // Fetch single pedido by its ID
+      // 1) Fetch single pedido by its ID
       ({ data, error } = await supabase
         .from('supplier_pedidos')
         .select('*')
         .eq('id', id)
         .single()
       );
+
     } else {
-      // If no id, require both startDate and endDate
-      if (!startDate || !endDate) {
+      // 2) If no id, require at least startDate
+      if (!startDate) {
         return res
           .status(400)
-          .json({ error: 'startDate e endDate são obrigatórios.' });
+          .json({ error: 'É necessário informar id (ex: ?id=47) ou uma data (ex: ?2023-04-17) ou um intervalo (?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD).' });
       }
-      // Fetch pedidos in the date range
+      // if only one date was provided above, startDate===endDate
+      // else both must be present
+      if (!endDate) {
+        return res
+          .status(400)
+          .json({ error: 'Quando usando intervalo, startDate e endDate são obrigatórios.' });
+      }
+
+      // 2a) Fetch pedidos in the date range (inclusive)
       ({ data, error } = await supabase
         .from('supplier_pedidos')
         .select('*')
@@ -37,9 +56,10 @@ module.exports = async (req, res) => {
     }
 
     if (error) throw error;
-    res.status(200).json(data);
+    return res.status(200).json(data);
+
   } catch (err) {
     console.error('Erro no servidor:', err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
