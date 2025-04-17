@@ -197,29 +197,63 @@ app.get('/api/gerar-hash', async (req, res) => {
 });
 
 // --- GET /api/agent/pedidos ---
-// Filtra por data_venda e só retorna do affiliate logado
 app.get('/api/agent/pedidos', authMiddleware, async (req, res) => {
   try {
     const user = req.session.user;
     if (!user || !user.affiliate_id) {
       return res.status(401).json({ error: 'Não autorizado.' });
     }
+    const affiliateId = user.affiliate_id;
 
-    const { startDate, endDate } = req.query;
-    if (!startDate || !endDate) {
-      return res.status(400).json({ error: 'startDate e endDate são obrigatórios.' });
+    // == extrai rawQuery e monta URLSearchParams ==
+    const rawQuery = req.url.split('?')[1] || '';
+    const params   = new URLSearchParams(rawQuery);
+
+    let id        = params.get('id');
+    let startDate = params.get('startDate');
+    let endDate   = params.get('endDate');
+
+    // suporta também formatos ?47 ou ?2023-04-17
+    if (!id && !startDate && !endDate && rawQuery) {
+      if (/^\d+$/.test(rawQuery)) {
+        id = rawQuery;
+      } else if (/^\d{4}-\d{2}-\d{2}$/.test(rawQuery)) {
+        startDate = endDate = rawQuery;
+      }
     }
 
-    const { data, error } = await supabase
-      .from('supplier_pedidos')
-      .select('*')
-      .eq('affiliate_id', user.affiliate_id)
-      .gte('data_venda', startDate)
-      .lte('data_venda', endDate)
-      .order('data_venda', { ascending: false });
+    let data, error;
+
+    if (id) {
+      // busca único pedido
+      ({ data, error } = await supabase
+        .from('supplier_pedidos')
+        .select('*')
+        .eq('affiliate_id', affiliateId)
+        .eq('id', id)
+        .single()
+      );
+    } else {
+      // exige data ou intervalo
+      if (!startDate || !endDate) {
+        return res.status(400).json({
+          error: 'Informe id (ex: ?id=47), data (ex: ?2023-04-17) ou intervalo (?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD).'
+        });
+      }
+      // busca por data_venda no intervalo (ou na mesma data)
+      ({ data, error } = await supabase
+        .from('supplier_pedidos')
+        .select('*')
+        .eq('affiliate_id', affiliateId)
+        .gte('data_venda', startDate)
+        .lte('data_venda', endDate)
+        .order('data_venda', { ascending: false })
+      );
+    }
 
     if (error) throw error;
-    res.json(data);
+    res.status(200).json(data);
+
   } catch (err) {
     console.error('Erro em GET /api/agent/pedidos:', err);
     res.status(500).json({ error: err.message });
