@@ -433,139 +433,157 @@
   <script src="/assets/js/main.js"></script>
 
   <script>
-  // Helper para formatar valores em Real brasileiro
-  const formatBRL = val =>
-    Number(val).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-  // ===== 1) Configuração e abertura do calendário =====
-  const btnOpen    = document.getElementById('openCalendarBtn');
-  const selDatesEl = document.getElementById('selectedDates');
-  const calEl      = createCalendarComponent();
-  Object.assign(calEl.style, { position:'absolute', display:'none', zIndex:'1000' });
-  document.body.appendChild(calEl);
-
-  function positionCal() {
-    const r = btnOpen.getBoundingClientRect();
-    calEl.style.top  = `${r.bottom + window.scrollY}px`;
-    calEl.style.left = `${r.left   + window.scrollX}px`;
-    requestAnimationFrame(() => {
-      const cr = calEl.getBoundingClientRect();
-      if (cr.right  > window.innerWidth)  calEl.style.left = `${parseFloat(calEl.style.left) - (cr.right  - window.innerWidth + 10)}px`;
-      if (cr.bottom > window.innerHeight) calEl.style.top  = `${parseFloat(calEl.style.top)  - (cr.bottom - window.innerHeight + 10)}px`;
+    // Helper para formatar valores em Real brasileiro
+    const formatBRL = val =>
+      Number(val).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  
+    // Helper para capitalizar a primeira letra e baixar o resto
+    const capitalizeFirst = s =>
+      s
+        ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()
+        : '';
+  
+    // ===== 1) Configuração e abertura do calendário =====
+    const btnOpen    = document.getElementById('openCalendarBtn');
+    const selDatesEl = document.getElementById('selectedDates');
+    const calEl      = createCalendarComponent();
+    Object.assign(calEl.style, { position:'absolute', display:'none', zIndex:'1000' });
+    document.body.appendChild(calEl);
+  
+    function positionCal() {
+      const r = btnOpen.getBoundingClientRect();
+      calEl.style.top  = `${r.bottom + window.scrollY}px`;
+      calEl.style.left = `${r.left   + window.scrollX}px`;
+      requestAnimationFrame(() => {
+        const cr = calEl.getBoundingClientRect();
+        if (cr.right  > window.innerWidth)  calEl.style.left = `${parseFloat(calEl.style.left) - (cr.right  - window.innerWidth + 10)}px`;
+        if (cr.bottom > window.innerHeight) calEl.style.top  = `${parseFloat(calEl.style.top)  - (cr.bottom - window.innerHeight + 10)}px`;
+      });
+    }
+  
+    btnOpen.addEventListener('click', () => {
+      if (calEl.style.display === 'none') {
+        positionCal();
+        calEl.style.display = 'block';
+      } else {
+        calEl.style.display = 'none';
+      }
     });
-  }
-
-  btnOpen.addEventListener('click', () => {
-    if (calEl.style.display === 'none') {
-      positionCal();
-      calEl.style.display = 'block';
-    } else {
-      calEl.style.display = 'none';
+  
+    document.addEventListener('click', e => {
+      if (!calEl.contains(e.target) && e.target !== btnOpen) {
+        calEl.style.display = 'none';
+      }
+    });
+  
+    calEl.querySelector('.calendar__button--primary')
+      .addEventListener('click', () => {
+        const sel = Array.from(calEl.querySelectorAll('.calendar__date--selected'));
+        if (!sel.length) return;
+  
+        const year  = +calEl.querySelector('#calendar__year').value;
+        const month = +calEl.querySelector('#calendar__month').value;
+        const days  = sel.map(d => +d.textContent);
+  
+        const sDate = new Date(year, month, Math.min(...days));
+        const eDate = new Date(year, month, Math.max(...days));
+        const fmt = d =>
+          `${String(d.getDate()).padStart(2,'0')}/` +
+          `${String(d.getMonth()+1).padStart(2,'0')}/` +
+          `${d.getFullYear()}`;
+  
+        selDatesEl.textContent = `${fmt(sDate)} – ${fmt(eDate)}`;
+        fetchPedidos(sDate, eDate);
+        calEl.style.display = 'none';
+      });
+  
+    // ===== 2) Buscar e renderizar pedidos =====
+    const bodyPed = document.getElementById('pedidosBody');
+  
+    function fetchPedidos(startDate, endDate) {
+      const iso = d => d.toISOString().split('T')[0];
+      fetch(`/api/agent/pedidos?startDate=${iso(startDate)}&endDate=${iso(endDate)}`)
+        .then(r => {
+          if (!r.ok) throw new Error(`Status ${r.status}`);
+          return r.json();
+        })
+        .then(data => renderPedidos(data))
+        .catch(err => {
+          bodyPed.innerHTML = `
+            <tr><td colspan="6" class="text-center text-danger">
+              Erro ao carregar pedidos: ${err.message}
+            </td></tr>
+          `;
+        });
     }
-  });
-
-  document.addEventListener('click', e => {
-    if (!calEl.contains(e.target) && e.target !== btnOpen) {
-      calEl.style.display = 'none';
+  
+    function renderPedidos(data) {
+      bodyPed.innerHTML = '';
+  
+      if (!data.length) {
+        bodyPed.innerHTML = `
+          <tr><td colspan="6" class="text-center">Nenhum pedido encontrado.</td></tr>
+        `;
+        return;
+      }
+  
+      data.forEach(p => {
+        const id = p.id;
+  
+        // Nome: primeiro + último, cada um capitalizado
+        const parts = (p.nome || '')
+          .trim()
+          .split(/\s+/)
+          .map(capitalizeFirst);
+        const nomeFormatted = parts.length > 1
+          ? `${parts[0]} ${parts[parts.length - 1]}`
+          : parts[0] || '';
+  
+        // Forma de pagamento: sempre com primeira maiúscula
+        const meio = capitalizeFirst(p.meio_pgto || '');
+  
+        // Status: sempre com primeira maiúscula
+        const key = (p.status || '').toLowerCase();
+        const statusText = capitalizeFirst(key);
+        let cls = 'active-btn';
+        if (key === 'pago')     cls = 'success-btn';
+        if (key === 'recusado') cls = 'close-btn';
+  
+        // Valor formatado
+        const valor = formatBRL(parseFloat(p.valor_venda) || 0);
+  
+        // Ação: ícone fixo, nunca muda
+        const actionBtn = `
+          <button onclick="window.location.href='/agente/pedido/${id}'">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i>
+          </button>`;
+  
+        bodyPed.insertAdjacentHTML('beforeend', `
+          <tr>
+            <td><p>${id}</p></td>
+            <td><p>${nomeFormatted}</p></td>
+            <td><p>${meio}</p></td>
+            <td><p>${valor}</p></td>
+            <td><span class="status-btn ${cls}">${statusText}</span></td>
+            <td>${actionBtn}</td>
+          </tr>
+        `);
+      });
     }
-  });
-
-  calEl.querySelector('.calendar__button--primary')
-    .addEventListener('click', () => {
-      const sel = Array.from(calEl.querySelectorAll('.calendar__date--selected'));
-      if (!sel.length) return;
-
-      const year  = +calEl.querySelector('#calendar__year').value;
-      const month = +calEl.querySelector('#calendar__month').value;
-      const days  = sel.map(d => +d.textContent);
-
-      const sDate = new Date(year, month, Math.min(...days));
-      const eDate = new Date(year, month, Math.max(...days));
+  
+    // ===== 3) Inicialização automática (mês atual) =====
+    (function init() {
+      const hoje      = new Date();
+      const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      const fimMes    = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
       const fmt = d =>
         `${String(d.getDate()).padStart(2,'0')}/` +
         `${String(d.getMonth()+1).padStart(2,'0')}/` +
         `${d.getFullYear()}`;
-
-      selDatesEl.textContent = `${fmt(sDate)} – ${fmt(eDate)}`;
-      fetchPedidos(sDate, eDate);
-      calEl.style.display = 'none';
-    });
-
-  // ===== 2) Buscar e renderizar pedidos =====
-  const bodyPed = document.getElementById('pedidosBody');
-
-  function fetchPedidos(startDate, endDate) {
-    const iso = d => d.toISOString().split('T')[0];
-    fetch(`/api/agent/pedidos?startDate=${iso(startDate)}&endDate=${iso(endDate)}`)
-      .then(r => {
-        if (!r.ok) throw new Error(`Status ${r.status}`);
-        return r.json();
-      })
-      .then(data => renderPedidos(data))
-      .catch(err => {
-        bodyPed.innerHTML = `
-          <tr><td colspan="6" class="text-center text-danger">
-            Erro ao carregar pedidos: ${err.message}
-          </td></tr>
-        `;
-      });
-  }
-
-  function renderPedidos(data) {
-    bodyPed.innerHTML = '';
-
-    if (!data.length) {
-      bodyPed.innerHTML = `
-        <tr><td colspan="6" class="text-center">Nenhum pedido encontrado.</td></tr>
-      `;
-      return;
-    }
-
-    data.forEach(p => {
-      const id   = p.id;
-      const parts = (p.nome || '').trim().split(/\s+/);
-      const nomeFormatted = parts.length > 1
-        ? `${parts[0]} ${parts[parts.length - 1]}`
-        : parts[0] || '';
-      const meio  = p.meio_pgto || '';
-      const valor = formatBRL(parseFloat(p.valor_venda) || 0);
-      const key   = (p.status || '').toLowerCase();
-      let cls     = 'active-btn';
-      if (key === 'pago')     cls = 'success-btn';
-      if (key === 'recusado') cls = 'close-btn';
-      const statusText = key.charAt(0).toUpperCase() + key.slice(1);
-
-      const actionBtn = `
-        <button onclick="window.location.href='/agente/pedido/${id}'">
-          <i class="fa-solid fa-arrow-up-right-from-square"></i>
-        </button>`;
-
-      bodyPed.insertAdjacentHTML('beforeend', `
-        <tr>
-          <td><p>${id}</p></td>
-          <td><p>${nomeFormatted}</p></td>
-          <td><p>${meio}</p></td>
-          <td><p>${valor}</p></td>
-          <td><span class="status-btn ${cls}">${statusText}</span></td>
-          <td>${actionBtn}</td>
-        </tr>
-      `);
-    });
-  }
-
-  // ===== 3) Inicialização automática (mês atual) =====
-  (function init() {
-    const hoje      = new Date();
-    const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-    const fimMes    = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
-    const fmt = d =>
-      `${String(d.getDate()).padStart(2,'0')}/` +
-      `${String(d.getMonth()+1).padStart(2,'0')}/` +
-      `${d.getFullYear()}`;
-
-    selDatesEl.textContent = `${fmt(inicioMes)} – ${fmt(fimMes)}`;
-    fetchPedidos(inicioMes, fimMes);
-  })();
-</script>
+  
+      selDatesEl.textContent = `${fmt(inicioMes)} – ${fmt(fimMes)}`;
+      fetchPedidos(inicioMes, fimMes);
+    })();
+  </script>  
 </body>
 </html>
