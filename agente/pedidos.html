@@ -438,15 +438,14 @@
       Number(val).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   
     // ====== 1) Configuração e abertura do calendário ======
-    const btnOpen      = document.getElementById('openCalendarBtn');
-    const selDatesEl   = document.getElementById('selectedDates');
-    const calEl        = createCalendarComponent();
+    const btnOpen    = document.getElementById('openCalendarBtn');
+    const selDatesEl = document.getElementById('selectedDates');
+    const calEl      = createCalendarComponent();
   
-    // Estilo e posicionamento iniciais do calendário
     Object.assign(calEl.style, {
-      position:  'absolute',
-      display:   'none',
-      zIndex:    '1000'
+      position: 'absolute',
+      display:  'none',
+      zIndex:   '1000'
     });
     document.body.appendChild(calEl);
   
@@ -456,13 +455,8 @@
       calEl.style.left = `${r.left   + window.scrollX}px`;
       requestAnimationFrame(() => {
         const cr = calEl.getBoundingClientRect();
-        // Ajusta se estourar a janela
-        if (cr.right  > window.innerWidth) {
-          calEl.style.left = `${parseFloat(calEl.style.left) - (cr.right - window.innerWidth + 10)}px`;
-        }
-        if (cr.bottom > window.innerHeight) {
-          calEl.style.top  = `${parseFloat(calEl.style.top)  - (cr.bottom - window.innerHeight + 10)}px`;
-        }
+        if (cr.right  > window.innerWidth)  calEl.style.left = `${parseFloat(calEl.style.left) - (cr.right  - window.innerWidth + 10)}px`;
+        if (cr.bottom > window.innerHeight) calEl.style.top  = `${parseFloat(calEl.style.top)  - (cr.bottom - window.innerHeight + 10)}px`;
       });
     }
   
@@ -481,7 +475,6 @@
       }
     });
   
-    // Ao confirmar datas no calendário
     calEl.querySelector('.calendar__button--primary')
       .addEventListener('click', () => {
         const sel   = Array.from(calEl.querySelectorAll('.calendar__date--selected'));
@@ -514,11 +507,9 @@
         .then(data => renderPedidos(data))
         .catch(err => {
           bodyPed.innerHTML = `
-            <tr>
-              <td colspan="6" class="text-center text-danger">
-                Erro: ${err.message}
-              </td>
-            </tr>
+            <tr><td colspan="6" class="text-center text-danger">
+              Erro: ${err.message}
+            </td></tr>
           `;
         });
     }
@@ -528,38 +519,35 @@
   
       if (!data.length) {
         bodyPed.innerHTML = `
-          <tr>
-            <td colspan="6" class="text-center">Nenhum pedido encontrado.</td>
-          </tr>
+          <tr><td colspan="6" class="text-center">Nenhum pedido encontrado.</td></tr>
         `;
         return;
       }
   
       data.forEach(p => {
         // Formata nome: primeiro + último
-        const parts = p.nome_comprador.trim().split(/\s+/);
+        const parts = p.nome.trim().split(/\s+/);
         const nomeFormatted = parts.length > 1
           ? `${parts[0]} ${parts[parts.length - 1]}`
           : parts[0];
   
-        // Define classe de status
-        const key = p.status.toLowerCase();
+        // Classe de status
+        const key = (p.status || '').toLowerCase();
         let cls = 'active-btn';
         if (key === 'pago')     cls = 'success-btn';
         if (key === 'recusado') cls = 'close-btn';
   
-        // Botão de ação abre detalhe do pedido
+        // Botão de ação
         const actionBtn = `
           <button onclick="window.location.href='/agente/pedido/${p.id}'">
             <i class="fa-solid fa-arrow-up-right-from-square"></i>
-          </button>
-        `;
+          </button>`;
   
         bodyPed.insertAdjacentHTML('beforeend', `
           <tr>
             <td><p>${p.id}</p></td>
             <td><p>${nomeFormatted}</p></td>
-            <td><p>${p.forma_pagamento}</p></td>
+            <td><p>${p.meio_pgto}</p></td>
             <td><p>${formatBRL(parseFloat(p.valor_venda) || 0)}</p></td>
             <td>
               <span class="status-btn ${cls}">
@@ -572,7 +560,7 @@
       });
     }
   
-    // ====== 3) Inicialização automática (filtra mês atual) ======
+    // ====== 3) Inicialização automática (mês atual) ======
     (function init() {
       const hoje      = new Date();
       const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
