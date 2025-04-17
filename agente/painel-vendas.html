@@ -833,8 +833,10 @@
         renderRegiao(data);
 
         // Destaca apenas estados com pedidos
-        const ufs = [...new Set(data.map(p => p.uf).filter(Boolean))];
-        mapChart.setSelectedRegions(ufs.map(uf => `BR-${uf}`));
+        const ufs    = [...new Set(data.map(p => p.uf).filter(Boolean))];
+        const regions = ufs.map(uf => `BR-${uf}`);
+        mapChart.clearSelectedRegions();
+        mapChart.addSelectedRegions(regions);
       })
       .catch(err => {
         console.error("Erro ao buscar pedidos:", err);
