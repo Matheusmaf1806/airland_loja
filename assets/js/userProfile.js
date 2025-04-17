@@ -23,7 +23,12 @@
     if (elFirstDD) elFirstDD.textContent = user.primeiro_nome;
 
     const elEmail = document.querySelector('.profile-email');
-    if (elEmail) elEmail.textContent = user.email;
+    if (elEmail) {
+      elEmail.textContent = user.email;
+      if (elEmail.textContent.length > 20) {
+        elEmail.textContent = elEmail.textContent.slice(0, 20) + '...';
+      }
+    }
 
     // 2) Promo‑box na sidebar
     const promoImg = document.querySelector('.promo-box .promo-icon img');
