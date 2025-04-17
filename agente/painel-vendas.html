@@ -404,11 +404,11 @@
                   </table>
                 </div>
                 <div class="d-flex justify-content-end align-items-center" style="gap: 10px;">
-                  <button id="prevPageBtn" class="main-btn secondary-btn btn-sm">
+                  <button id="prevPageBtn" class="main-btn primary-btn btn-sm">
                     &laquo; Anterior
                   </button>
                   <span id="paginationInfo" class="text-sm fw-bold"></span>
-                  <button id="nextPageBtn" class="main-btn secondary-btn btn-sm">
+                  <button id="nextPageBtn" class="main-btn primary-btn btn-sm">
                     Próximo &raquo;
                   </button>
                 </div>
@@ -756,7 +756,7 @@
         // Status: classes e capitalização
         const key = p.status.toLowerCase();
         let cls = "active-btn";
-        if (key === "pagos")    cls = "success-btn";
+        if (key === "pago")    cls = "success-btn";
         if (key === "recusado") cls = "close-btn";
         if (key === "pending")  cls = "active-btn";
         const statusText = key.charAt(0).toUpperCase() + key.slice(1);
