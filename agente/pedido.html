@@ -650,14 +650,19 @@
     <script src="/assets/js/main.js"></script>
 
     <script>
-      // Extrai ID do pedido da query-string ?id=47
-      const params   = new URLSearchParams(window.location.search);
-      const pedidoId = params.get('id');
+      // Extrai ID do pedido da query-string, suporta tanto "?id=47" quanto "?47"
+      const rawSearch = window.location.search.substring(1); // tudo após o "?"
+      const params    = new URLSearchParams(window.location.search);
+      let pedidoId    = params.get('id');
+      if (!pedidoId && rawSearch) {
+        // formato "?47"
+        pedidoId = rawSearch;
+      }
       if (!pedidoId) {
         console.error('ID do pedido não informado na URL');
-        // aqui talvez você queira redirecionar ou exibir uma mensagem
+        // aqui você pode redirecionar ou exibir uma mensagem ao usuário
       }
-
+    
       // Helpers
       function formatDate(d) {
         const dt = new Date(d);
@@ -675,66 +680,74 @@
           currency: "BRL",
         });
       }
-
+    
       // Preenche logo da empresa
       fetch("/api/me")
         .then((r) => r.json())
         .then((me) => {
           document.getElementById("companyLogo").src = me.logo_url;
-        });
-
-      // Busca todos os pedidos e encontra o desejado
+        })
+        .catch((err) => console.error("Erro ao carregar logo:", err));
+    
+      // Busca o pedido pelo ID
       fetch(`/api/agent/pedidos?id=${pedidoId}`)
-        .then(r => r.json())
-        .then(p => {
+        .then((r) => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        })
+        .then((p) => {
           if (!p) throw new Error("Pedido não encontrado");
+    
           // Header
           document.getElementById("dataPgto").textContent = formatDate(p.data_pgto);
-          document.getElementById("orderId").textContent = p.id;
+          document.getElementById("orderId").textContent  = p.id;
+    
           // Cliente
-          document.getElementById("clienteNome").textContent = p.nome;
+          document.getElementById("clienteNome").textContent     = p.nome;
           document.getElementById("clienteTelefone").textContent = p.telefone;
-          document.getElementById("clienteEmail").textContent = p.email;
+          document.getElementById("clienteEmail").textContent    = p.email;
+    
           // Itens
-          const itens = JSON.parse(p.pedido || "[]");
-          let subtotal = 0;
-          const tbody = document.getElementById("invoiceTableBody");
+          const itens   = JSON.parse(p.pedido || "[]");
+          let subtotal  = 0;
+          const tbody   = document.getElementById("invoiceTableBody");
+          tbody.innerHTML = ""; // limpa caso já tenha algo
+    
           itens.forEach((it) => {
             const quantidade = (it.adults || 0) + (it.children || 0);
-            const valorItem =
-              (it.adults || 0) * (it.basePriceAdult || 0) +
-              (it.children || 0) * (it.basePriceChild || 0);
+            const valorItem   =
+              (it.adults  || 0) * (it.basePriceAdult || 0) +
+              (it.children|| 0) * (it.basePriceChild || 0);
             subtotal += valorItem;
+    
             tbody.insertAdjacentHTML(
               "beforeend",
               `<tr>
                 <td><p class="text-sm">${it.type}</p></td>
-                <td><p class="text-sm">${it.hotelName} - ${it.roomName}</p></td>
+                <td><p class="text-sm">${it.hotelName} – ${it.roomName}</p></td>
                 <td><p class="text-sm">${quantidade}</p></td>
                 <td><p class="text-sm">${toBRL(valorItem)}</p></td>
               </tr>`
             );
           });
+    
           document.getElementById("subtotal").textContent = toBRL(subtotal);
-
+    
           // Desconto de 5% se meio_pgto for PIX
           const meio = (p.meio_pgto || "").toLowerCase();
-          let descontoVal = 0;
-          if (meio === "pix") {
-            descontoVal = subtotal * 0.05;
-          }
+          const descontoVal = meio === "pix" ? subtotal * 0.05 : 0;
           document.getElementById("desconto").textContent = descontoVal
-            ? `${(descontoVal / subtotal) * 100}% (${toBRL(descontoVal)})`
+            ? `${((descontoVal / subtotal) * 100).toFixed(0)}% (${toBRL(descontoVal)})`
             : "0%";
-
-          // Cupom de desconto deixamos sempre zero
+    
+          // Cupom de desconto (sempre zero)
           document.getElementById("cupom").textContent = "0";
-
-          // Total = subtotal - desconto - cupom
+    
+          // Total = subtotal – desconto
           const totalVal = subtotal - descontoVal;
           document.getElementById("total").textContent = toBRL(totalVal);
         })
-        .catch((err) => console.error(err));
-    </script>
+        .catch((err) => console.error("Erro ao carregar pedido:", err));
+    </script>    
   </body>
 </html>
