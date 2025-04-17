@@ -538,20 +538,35 @@
   <script src="/assets/js/main.js"></script>
 
   <script>
+  // Helper para formatar valores em Real brasileiro
+  const formatBRL = val =>
+    val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
   /**********************************
    * 1. Ativação do Mapa (jsVectorMap)
    **********************************/
-  const map = new jsVectorMap({
+  const markers = [
+    { name: "São Paulo", coords: [-23.5505, -46.6333] },
+    { name: "Rio de Janeiro", coords: [-22.9068, -43.1729] },
+    { name: "Belo Horizonte", coords: [-19.8157, -43.9542] },
+    { name: "Salvador", coords: [-12.9714, -38.5014] },
+    { name: "Porto Alegre", coords: [-30.0346, -51.2177] },
+  ];
+  new jsVectorMap({
     map: "world_merc",
     selector: "#map",
     zoomButtons: true,
     focusOn: { region: "BR" },
-    regionStyle: {
-      initial: { fill: "#d1d5db" },
-      selected: { fill: "#4A6CF7" }
+    regionStyle: { initial: { fill: "#d1d5db" } },
+    labels: { markers: { render: m => m.name } },
+    markersSelectable: true,
+    selectedMarkers: [],
+    markers,
+    markerStyle: {
+      initial: { fill: "#4A6CF7" },
+      selected: { fill: "#ff5050" },
     },
-    regionsSelectable: true,
-    selectedRegions: []
+    markerLabelStyle: { initial: { fontWeight: 400, fontSize: 14 } },
   });
 
   /**********************************
@@ -625,7 +640,7 @@
    * 3. Lógica do Tema (Light/Dark)
    **********************************/
   const lightTheme = { darkBorder: "rgba(143,146,161,.1)", darkColor: "#5A6A85" },
-        darkTheme  = { darkBorder: "#2b2b42", darkColor: "#838C9A" };
+        darkTheme  = { darkBorder: "#2b2b42",            darkColor: "#838C9A" };
   function applyTheme(t) {
     [chart3, chart4].forEach(ch => {
       if (!ch) return;
@@ -660,7 +675,7 @@
     calEl.style.left = r.left   + window.scrollX + "px";
     requestAnimationFrame(() => {
       const cr = calEl.getBoundingClientRect();
-      if (cr.right  > window.innerWidth)  {
+      if (cr.right  > window.innerWidth) {
         const excesso = cr.right - window.innerWidth + 10;
         calEl.style.left = `${parseFloat(calEl.style.left) - excesso}px`;
       }
@@ -686,8 +701,8 @@
     }
   });
 
-  const btnApplyCal = calEl.querySelector(".calendar__button--primary");
-  btnApplyCal.addEventListener("click", () => {
+  const btnApply = calEl.querySelector(".calendar__button--primary");
+  btnApply.addEventListener("click", () => {
     const sel = Array.from(calEl.querySelectorAll(".calendar__date--selected"));
     if (sel.length < 1) return;
 
@@ -696,8 +711,8 @@
     const days  = sel.map(d => +d.textContent);
     const sDate = new Date(year, month, Math.min(...days));
     const eDate = new Date(year, month, Math.max(...days));
-    const fmt   = d => `${String(d.getDate()).padStart(2,"0")}/`+
-                      `${String(d.getMonth()+1).padStart(2,"0")}/`+
+    const fmt   = d => `${String(d.getDate()).padStart(2,"0")}/` +
+                      `${String(d.getMonth()+1).padStart(2,"0")}/` +
                       `${d.getFullYear()}`;
 
     selDates.textContent = `${fmt(sDate)} – ${fmt(eDate)}`;
@@ -710,17 +725,13 @@
   /**********************************
    * 5. Paginação e Renderização de Pedidos
    **********************************/
-  const bodyPed  = document.getElementById("pedidosBody");
-  const btnPrev  = document.getElementById("prevPageBtn");
-  const btnNext  = document.getElementById("nextPageBtn");
-  const infoPag  = document.getElementById("paginationInfo");
-  const perPage  = 15;
-  let pedidosData  = [];
-  let currentPage  = 1;
-
-  function capitalize(s) {
-    return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
-  }
+  const bodyPed = document.getElementById("pedidosBody");
+  const btnPrev = document.getElementById("prevPageBtn");
+  const btnNext = document.getElementById("nextPageBtn");
+  const infoPag = document.getElementById("paginationInfo");
+  const perPage = 15;
+  let   pedidosData = [];
+  let   currentPage = 1;
 
   function renderPedidos(page = 1) {
     bodyPed.innerHTML = "";
@@ -729,38 +740,33 @@
       bodyPed.innerHTML = `<tr><td colspan="4" class="text-center">Nenhum pedido encontrado.</td></tr>`;
     } else {
       slice.forEach(p => {
-        // Formata nome (primeiro e último)
+        //  Cliente: só primeiro e último, primeira letra maiúscula
         const parts = p.nome_comprador.trim().split(/\s+/);
         const first = parts[0] || "";
-        const last  = parts.length > 1 ? parts[parts.length - 1] : "";
-        const displayName = last
-          ? `${capitalize(first)} ${capitalize(last)}`
-          : capitalize(first);
+        const last  = parts[parts.length - 1] || "";
+        const cliente = 
+          first.charAt(0).toUpperCase() + first.slice(1).toLowerCase()
+          + " " +
+          last.charAt(0).toUpperCase() + last.slice(1).toLowerCase();
 
-        // Formata valor em Real
-        const formattedValue = new Intl.NumberFormat('pt-BR', {
-          style: 'currency',
-          currency: 'BRL'
-        }).format(parseFloat(p.valor_venda));
+        // Valor: formatado em BRL
+        const valorNum = parseFloat(p.valor_venda) || 0;
+        const valor = formatBRL(valorNum);
 
-        // Classe e texto de status
-        const statusRaw = p.status.trim().toLowerCase();
-        let statusClass = 'status-btn ';
-        if (statusRaw === 'pago' || statusRaw === 'pagos') {
-          statusClass += 'success-btn';
-        } else if (statusRaw === 'recusado') {
-          statusClass += 'close-btn';
-        } else {
-          statusClass += 'active-btn'; // pending ou outros
-        }
-        const statusText = capitalize(statusRaw);
+        // Status: classes e capitalização
+        const key = p.status.toLowerCase();
+        let cls = "active-btn";
+        if (key === "pagos")    cls = "success-btn";
+        if (key === "recusado") cls = "close-btn";
+        if (key === "pending")  cls = "active-btn";
+        const statusText = key.charAt(0).toUpperCase() + key.slice(1);
 
-        bodyPed.insertAdjacentHTML('beforeend', `
+        bodyPed.insertAdjacentHTML("beforeend", `
           <tr>
-            <td>${displayName}</td>
+            <td>${cliente}</td>
             <td>${p.efetivado_por}</td>
-            <td>${formattedValue}</td>
-            <td class="${statusClass}">${statusText}</td>
+            <td>${valor}</td>
+            <td class="text-end"><span class="status-btn ${cls}">${statusText}</span></td>
           </tr>
         `);
       });
@@ -771,36 +777,16 @@
     btnNext.disabled = page >= totalPages;
   }
 
-  btnPrev.addEventListener("click", () => { if (currentPage > 1) renderPedidos(--currentPage); });
+  btnPrev.addEventListener("click", () => {
+    if (currentPage > 1) renderPedidos(--currentPage);
+  });
   btnNext.addEventListener("click", () => {
     const totalPages = Math.ceil(pedidosData.length / perPage);
     if (currentPage < totalPages) renderPedidos(++currentPage);
   });
 
-  function renderRegiao(data) {
-    // Monta tabela de Pedidos por Região
-    const resumo = data.reduce((acc, p) => {
-      const uf = p.uf || 'ND';
-      acc[uf] = (acc[uf] || 0) + parseFloat(p.valor_venda);
-      return acc;
-    }, {});
-    const total = Object.values(resumo).reduce((sum, v) => sum + v, 0);
-    const tbody  = document.getElementById('regiaoBody');
-    tbody.innerHTML = '';
-    Object.entries(resumo).forEach(([uf, valor]) => {
-      const perc = total > 0 ? (valor / total * 100).toFixed(1) : '0.0';
-      tbody.insertAdjacentHTML('beforeend', `
-        <tr>
-          <td><p class="text-sm">${uf}</p></td>
-          <td><p class="text-sm">${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(valor)}</p></td>
-          <td><p class="text-sm">${perc}%</p></td>
-        </tr>
-      `);
-    });
-  }
-
   /**********************************
-   * 6. Filtro + Atualização
+   * 6. Filtra e atualiza dados via API
    **********************************/
   function filterDataByDate(startDate, endDate) {
     const fmtISO = d => d.toISOString().split("T")[0];
@@ -809,25 +795,20 @@
     fetch(`/api/agent/pedidos?startDate=${start}&endDate=${end}`)
       .then(res => {
         if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        if (!res.headers.get("content-type")?.includes("application/json")) {
+          throw new Error("Resposta não é JSON");
+        }
         return res.json();
       })
       .then(data => {
         pedidosData = data;
         currentPage = 1;
-        // Atualiza métricas
         document.getElementById("clientCount").textContent = data.length;
+        // Faturamento: formatado em BRL
         const faturamento = data.reduce((sum, p) => sum + parseFloat(p.valor_venda), 0);
-        document.getElementById("faturamento").textContent =
-          new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(faturamento);
-
+        document.getElementById("faturamento").textContent = formatBRL(faturamento);
         renderPedidos();
         renderRegiao(data);
-
-        // Atualiza seleção de estados no mapa
-        const ufs = [...new Set(data.map(p => p.uf).filter(Boolean))];
-        const regions = ufs.map(uf => `BR-${uf.toUpperCase()}`);
-        map.clearSelectedRegions();
-        map.setSelectedRegions(regions);
       })
       .catch(err => {
         console.error("Erro ao buscar pedidos:", err);
@@ -837,15 +818,47 @@
       });
   }
 
+  /**
+   * Monta tabela de Pedidos por Região (UF)
+   */
+  function renderRegiao(data) {
+    const resumo = data.reduce((acc, p) => {
+      const uf = p.uf || "ND";
+      acc[uf] = (acc[uf] || 0) + parseFloat(p.valor_venda);
+      return acc;
+    }, {});
+    const total = Object.values(resumo).reduce((sum, v) => sum + v, 0);
+    const tbody = document.getElementById("regiaoBody");
+    tbody.innerHTML = "";
+    Object.entries(resumo).forEach(([uf, valor]) => {
+      const perc = total > 0 ? (valor / total * 100).toFixed(1) : "0.0";
+      tbody.insertAdjacentHTML("beforeend", `
+        <tr>
+          <td><p class="text-sm">${uf}</p></td>
+          <td><p class="text-sm">${formatBRL(valor)}</p></td>
+          <td><p class="text-sm">${perc}%</p></td>
+        </tr>
+      `);
+    });
+  }
+
   /**********************************
-   * 7. Inicialização automática
+   * 7. Trunca email no dropdown para 20 chars
+   **********************************/
+  document.querySelectorAll(".profile-email").forEach(el => {
+    const t = el.textContent.trim();
+    if (t.length > 20) el.textContent = t.slice(0, 20) + "...";
+  });
+
+  /**********************************
+   * 8. Inicialização automática
    **********************************/
   (function init() {
     const hoje      = new Date();
     const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
     const fimMes    = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0);
-    const fmt       = d => `${String(d.getDate()).padStart(2,"0")}/`+
-                          `${String(d.getMonth()+1).padStart(2,"0")}/`+
+    const fmt       = d => `${String(d.getDate()).padStart(2,"0")}/` +
+                          `${String(d.getMonth()+1).padStart(2,"0")}/` +
                           `${d.getFullYear()}`;
     selDates.textContent = `${fmt(inicioMes)} – ${fmt(fimMes)}`;
     selDates.style.display = "inline";
