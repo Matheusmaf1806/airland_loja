@@ -680,11 +680,10 @@
         });
 
       // Busca todos os pedidos e encontra o desejado
-      fetch("/api/agent/pedidos")
-        .then((r) => r.json())
-        .then((pedidos) => {
-          const p = pedidos.find((x) => String(x.id) === pedidoId);
-          if (!p) return console.error("Pedido não encontrado");
+      fetch(`/api/agent/pedidos?id=${pedidoId}`)
+        .then(r => r.json())
+        .then(p => {
+          if (!p) throw new Error("Pedido não encontrado");
           // Header
           document.getElementById("dataPgto").textContent = formatDate(p.data_pgto);
           document.getElementById("orderId").textContent = p.id;
