@@ -538,329 +538,327 @@
   <script src="/assets/js/main.js"></script>
 
   <script>
-    /**********************************
-     * 1. Mapa (jsVectorMap)
-     **********************************/
-    const markers = [
-      { name: "São Paulo",       coords: [-23.5505, -46.6333] },
-      { name: "Rio de Janeiro",  coords: [-22.9068, -43.1729] },
-      { name: "Belo Horizonte",  coords: [-19.8157, -43.9542] },
-      { name: "Salvador",        coords: [-12.9714, -38.5014] },
-      { name: "Porto Alegre",    coords: [-30.0346, -51.2177] },
-    ];
+  /**********************************
+   * 1. Mapa (jsVectorMap)
+   **********************************/
+  const markers = [
+    { name: "São Paulo",       coords: [-23.5505, -46.6333] },
+    { name: "Rio de Janeiro",  coords: [-22.9068, -43.1729] },
+    { name: "Belo Horizonte",  coords: [-19.8157, -43.9542] },
+    { name: "Salvador",        coords: [-12.9714, -38.5014] },
+    { name: "Porto Alegre",    coords: [-30.0346, -51.2177] },
+  ];
 
-    const mapChart = new jsVectorMap({
-      map: "world_merc",
-      selector: "#map",
-      zoomButtons: true,
-      focusOn: { region: "BR" },
-      regionStyle: {
-        initial:  { fill: "#d1d5db" },
-        selected: { fill: "#4A6CF7" }
+  const mapChart = new jsVectorMap({
+    map: "world_merc",
+    selector: "#map",
+    zoomButtons: true,
+    focusOn: { region: "BR" },
+    regionStyle: {
+      initial:  { fill: "#d1d5db" },
+      selected: { fill: "#4A6CF7" }
+    },
+    labels: { markers: { render: m => m.name } },
+    markersSelectable: true,
+    markers,
+    markerStyle: {
+      initial:  { fill: "#4A6CF7" },
+      selected: { fill: "#ff5050" }
+    },
+    markerLabelStyle: {
+      initial: { fontWeight: 400, fontSize: 14 }
+    }
+  });
+
+  /**********************************
+   * 2. Gráficos (Chart.js) – sem mudanças
+   **********************************/
+  let chart3, chart4;
+
+  const ctx3 = document.getElementById("Chart3")?.getContext("2d");
+  if (ctx3) {
+    chart3 = new Chart(ctx3, {
+      type: "line",
+      data: {
+        labels: ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"],
+        datasets: [{
+          label: "Visitors",
+          backgroundColor: "transparent",
+          borderColor: "#9b51e0",
+          data: [80,120,110,100,130,150,115,145,140,130,160,210],
+          pointBackgroundColor: "transparent",
+          pointHoverBackgroundColor: "#9b51e0",
+          pointBorderColor: "transparent",
+          pointHoverBorderColor: "#fff",
+          pointHoverBorderWidth: 3,
+          borderWidth: 5,
+          pointRadius: 5,
+          pointHoverRadius: 8,
+          fill: false,
+          cubicInterpolationMode: "monotone",
+        },{
+          label: "Visits",
+          backgroundColor: "transparent",
+          borderColor: "#4a6cf7",
+          data: [120,160,150,140,165,210,135,155,170,140,130,200],
+          pointBackgroundColor: "transparent",
+          pointHoverBackgroundColor: "#4a6cf7",
+          pointBorderColor: "transparent",
+          pointHoverBorderColor: "#fff",
+          pointHoverBorderWidth: 3,
+          borderWidth: 5,
+          pointRadius: 5,
+          pointHoverRadius: 8,
+          fill: false,
+          cubicInterpolationMode: "monotone",
+        }]
       },
-      labels: { markers: { render: m => m.name } },
-      markersSelectable: true,
-      markers,
-      markerStyle: {
-        initial:  { fill: "#4A6CF7" },
-        selected: { fill: "#ff5050" }
+      options: {}
+    });
+  }
+
+  const ctx4 = document.getElementById("Chart4")?.getContext("2d");
+  if (ctx4) {
+    chart4 = new Chart(ctx4, {
+      type: "bar",
+      data: {
+        labels: ["Jan","Fev","Mar","Abr","Mai","Jun"],
+        datasets: [{
+          backgroundColor: "#4A6CF7",
+          borderColor: "transparent",
+          borderRadius: 20,
+          data: [600,700,1000,700,650,800],
+        },{
+          backgroundColor: "#d50100",
+          borderColor: "transparent",
+          borderRadius: 20,
+          data: [690,740,720,1120,876,900],
+        }]
       },
-      markerLabelStyle: {
-        initial: { fontWeight: 400, fontSize: 14 }
+      options: {}
+    });
+  }
+
+  /**********************************
+   * 3. Tema (Light/Dark) – sem mudanças
+   **********************************/
+  const lightTheme = { darkBorder: "rgba(143,146,161,.1)", darkColor: "#5A6A85" },
+        darkTheme  = { darkBorder: "#2b2b42", darkColor: "#838C9A" };
+
+  function applyTheme(t) {
+    [chart3, chart4].forEach(ch => {
+      if (!ch) return;
+      ch.options.scales.y.grid.color       = t.darkBorder;
+      ch.options.scales.y.grid.borderColor = t.darkBorder;
+      ch.options.scales.x.ticks.color      = t.darkColor;
+      ch.options.scales.y.ticks.color      = t.darkColor;
+      ch.update();
+    });
+  }
+
+  document.querySelector(".darkThemeButton")?.addEventListener("click", () => applyTheme(darkTheme));
+  document.querySelector(".lightThemeButton")?.addEventListener("click", () => applyTheme(lightTheme));
+  applyTheme(localStorage.getItem("theme")==="dark" ? darkTheme : lightTheme);
+
+  /**********************************
+   * 4. Calendário + Filtro Dinâmico
+   **********************************/
+  const btnOpen  = document.getElementById("openCalendarBtn");
+  const selDates = document.getElementById("selectedDates");
+
+  btnOpen.style.marginBottom = "20px";
+  selDates.style.display     = "none";
+
+  const calEl = createCalendarComponent();
+  calEl.style.position = "absolute";
+  calEl.style.display  = "none";
+  calEl.style.zIndex   = "1000";
+  document.body.appendChild(calEl);
+
+  function positionCal() {
+    const r = btnOpen.getBoundingClientRect();
+    calEl.style.top  = r.bottom + window.scrollY + "px";
+    calEl.style.left = r.left   + window.scrollX + "px";
+
+    requestAnimationFrame(() => {
+      const cr = calEl.getBoundingClientRect();
+      if (cr.right  > window.innerWidth) {
+        calEl.style.left = `${parseFloat(calEl.style.left) - (cr.right  - window.innerWidth + 10)}px`;
+      }
+      if (cr.bottom > window.innerHeight) {
+        calEl.style.top  = `${parseFloat(calEl.style.top ) - (cr.bottom - window.innerHeight + 10)}px`;
       }
     });
+  }
 
-    /**********************************
-     * 2. Gráficos (Chart.js) – sem mudanças
-     **********************************/
-    let chart3, chart4;
-
-    const ctx3 = document.getElementById("Chart3")?.getContext("2d");
-    if (ctx3) {
-      chart3 = new Chart(ctx3, {
-        type: "line",
-        data: {
-          labels: ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"],
-          datasets: [{
-            label: "Visitors",
-            backgroundColor: "transparent",
-            borderColor: "#9b51e0",
-            data: [80,120,110,100,130,150,115,145,140,130,160,210],
-            pointBackgroundColor: "transparent",
-            pointHoverBackgroundColor: "#9b51e0",
-            pointBorderColor: "transparent",
-            pointHoverBorderColor: "#fff",
-            pointHoverBorderWidth: 3,
-            borderWidth: 5,
-            pointRadius: 5,
-            pointHoverRadius: 8,
-            fill: false,
-            cubicInterpolationMode: "monotone",
-          },{
-            label: "Visits",
-            backgroundColor: "transparent",
-            borderColor: "#4a6cf7",
-            data: [120,160,150,140,165,210,135,155,170,140,130,200],
-            pointBackgroundColor: "transparent",
-            pointHoverBackgroundColor: "#4a6cf7",
-            pointBorderColor: "transparent",
-            pointHoverBorderColor: "#fff",
-            pointHoverBorderWidth: 3,
-            borderWidth: 5,
-            pointRadius: 5,
-            pointHoverRadius: 8,
-            fill: false,
-            cubicInterpolationMode: "monotone",
-          }]
-        },
-        options: {}
-      });
-    }
-
-    const ctx4 = document.getElementById("Chart4")?.getContext("2d");
-    if (ctx4) {
-      chart4 = new Chart(ctx4, {
-        type: "bar",
-        data: {
-          labels: ["Jan","Fev","Mar","Abr","Mai","Jun"],
-          datasets: [{
-            backgroundColor: "#4A6CF7",
-            borderColor: "transparent",
-            borderRadius: 20,
-            data: [600,700,1000,700,650,800],
-          },{
-            backgroundColor: "#d50100",
-            borderColor: "transparent",
-            borderRadius: 20,
-            data: [690,740,720,1120,876,900],
-          }]
-        },
-        options: {}
-      });
-    }
-
-    /**********************************
-     * 3. Tema (Light/Dark) – sem mudanças
-     **********************************/
-    const lightTheme = { darkBorder: "rgba(143,146,161,.1)", darkColor: "#5A6A85" },
-          darkTheme  = { darkBorder: "#2b2b42", darkColor: "#838C9A" };
-
-    function applyTheme(t) {
-      [chart3, chart4].forEach(ch => {
-        if (!ch) return;
-        ch.options.scales.y.grid.color    = t.darkBorder;
-        ch.options.scales.y.grid.borderColor = t.darkBorder;
-        ch.options.scales.x.ticks.color   = t.darkColor;
-        ch.options.scales.y.ticks.color   = t.darkColor;
-        ch.update();
-      });
-    }
-
-    document.querySelector(".darkThemeButton")?.addEventListener("click", () => applyTheme(darkTheme));
-    document.querySelector(".lightThemeButton")?.addEventListener("click", () => applyTheme(lightTheme));
-    applyTheme(localStorage.getItem("theme")==="dark" ? darkTheme : lightTheme);
-
-    /**********************************
-     * 4. Calendário + Filtro Dinâmico
-     **********************************/
-    const btnOpen  = document.getElementById("openCalendarBtn");
-    const selDates = document.getElementById("selectedDates");
-
-    btnOpen.style.marginBottom = "20px";
-    selDates.style.display     = "none";
-
-    const calEl = createCalendarComponent();
-    calEl.style.position = "absolute";
-    calEl.style.display  = "none";
-    calEl.style.zIndex   = "1000";
-    document.body.appendChild(calEl);
-
-    function positionCal() {
-      const r = btnOpen.getBoundingClientRect();
-      calEl.style.top  = r.bottom + window.scrollY + "px";
-      calEl.style.left = r.left   + window.scrollX + "px";
-
-      requestAnimationFrame(() => {
-        const cr = calEl.getBoundingClientRect();
-        if (cr.right  > window.innerWidth) {
-          calEl.style.left = `${parseFloat(calEl.style.left) - (cr.right  - window.innerWidth + 10)}px`;
-        }
-        if (cr.bottom > window.innerHeight) {
-          calEl.style.top  = `${parseFloat(calEl.style.top ) - (cr.bottom - window.innerHeight + 10)}px`;
-        }
-      });
-    }
-
-    btnOpen.addEventListener("click", () => {
-      if (calEl.style.display === "none") {
-        positionCal();
-        calEl.style.display = "block";
-      } else {
-        calEl.style.display = "none";
-      }
-    });
-
-    document.addEventListener("click", e => {
-      if (!calEl.contains(e.target) && e.target !== btnOpen) {
-        calEl.style.display = "none";
-      }
-    });
-
-    const btnApply = calEl.querySelector(".calendar__button--primary");
-    btnApply.addEventListener("click", () => {
-      const sel = Array.from(calEl.querySelectorAll(".calendar__date--selected"));
-      if (!sel.length) return;
-
-      const year  = +calEl.querySelector("#calendar__year").value;
-      const month = +calEl.querySelector("#calendar__month").value;
-      const days  = sel.map(d => +d.textContent);
-      const sDate = new Date(year, month, Math.min(...days));
-      const eDate = new Date(year, month, Math.max(...days));
-      const fmt   = d => `${String(d.getDate()).padStart(2,"0")}/` +
-                        `${String(d.getMonth()+1).padStart(2,"0")}/` +
-                        `${d.getFullYear()}`;
-
-      selDates.textContent  = `${fmt(sDate)} – ${fmt(eDate)}`;
-      selDates.style.display = "inline";
-
-      filterDataByDate(sDate, eDate);
+  btnOpen.addEventListener("click", () => {
+    if (calEl.style.display === "none") {
+      positionCal();
+      calEl.style.display = "block";
+    } else {
       calEl.style.display = "none";
-    });
-
-    /**********************************
-     * 5. Paginação e Renderização de Pedidos
-     **********************************/
-    const bodyPed     = document.getElementById("pedidosBody");
-    const btnPrev     = document.getElementById("prevPageBtn");
-    const btnNext     = document.getElementById("nextPageBtn");
-    const infoPag     = document.getElementById("paginationInfo");
-    const perPage     = 15;
-    let   pedidosData = [];
-    let   currentPage = 1;
-
-    function renderPedidos(page = 1) {
-      bodyPed.innerHTML = "";
-      const slice = pedidosData.slice((page - 1) * perPage, page * perPage);
-
-      if (!slice.length) {
-        bodyPed.innerHTML = `<tr><td colspan="4" class="text-center">Nenhum pedido encontrado.</td></tr>`;
-      } else {
-        slice.forEach(p => {
-          // Nome: apenas primeiro e último, capitalização
-          const parts = p.nome_comprador.trim().split(/\s+/);
-          const first = parts[0], last = parts[parts.length - 1];
-          const nameFormatted = `${first.charAt(0).toUpperCase()}${first.slice(1).toLowerCase()} ` +
-                                `${last.charAt(0).toUpperCase()}${last.slice(1).toLowerCase()}`;
-
-          // Valor em Real
-          const valorBR = parseFloat(p.valor_venda)
-            .toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-          // Status e cor
-          const raw = p.status.toLowerCase();
-          let statusClass = "active-btn";
-          if (raw === "pagos")       statusClass = "success-btn";
-          else if (raw === "recusado") statusClass = "close-btn";
-          const statusText = raw.charAt(0).toUpperCase() + raw.slice(1);
-
-          bodyPed.insertAdjacentHTML("beforeend", `
-            <tr>
-              <td>${nameFormatted}</td>
-              <td>${p.efetivado_por}</td>
-              <td>${valorBR}</td>
-              <td class="text-end">
-                <span class="status-btn ${statusClass}">${statusText}</span>
-              </td>
-            </tr>
-          `);
-        });
-      }
-
-      const totalPages = Math.max(1, Math.ceil(pedidosData.length / perPage));
-      infoPag.textContent = `Página ${page} de ${totalPages} (${pedidosData.length} registros)`;
-      btnPrev.disabled = page <= 1;
-      btnNext.disabled = page >= totalPages;
     }
+  });
 
-    btnPrev.addEventListener("click", () => { if (currentPage > 1) renderPedidos(--currentPage); });
-    btnNext.addEventListener("click", () => {
-      const totalPages = Math.ceil(pedidosData.length / perPage);
-      if (currentPage < totalPages) renderPedidos(++currentPage);
-    });
+  document.addEventListener("click", e => {
+    if (!calEl.contains(e.target) && e.target !== btnOpen) {
+      calEl.style.display = "none";
+    }
+  });
 
-    function renderRegiao(data) {
-      const resumo = data.reduce((acc, p) => {
-        const uf = p.uf || "ND";
-        acc[uf] = (acc[uf] || 0) + parseFloat(p.valor_venda);
-        return acc;
-      }, {});
-      const total = Object.values(resumo).reduce((sum, v) => sum + v, 0);
-      const tbody  = document.getElementById("regiaoBody");
-      tbody.innerHTML = "";
+  const btnApply = calEl.querySelector(".calendar__button--primary");
+  btnApply.addEventListener("click", () => {
+    const sel = Array.from(calEl.querySelectorAll(".calendar__date--selected"));
+    if (!sel.length) return;
 
-      Object.entries(resumo).forEach(([uf, valor]) => {
-        const perc = total > 0 ? (valor / total * 100).toFixed(1) : "0.0";
-        tbody.insertAdjacentHTML("beforeend", `
+    const year  = +calEl.querySelector("#calendar__year").value;
+    const month = +calEl.querySelector("#calendar__month").value;
+    const days  = sel.map(d => +d.textContent);
+    const sDate = new Date(year, month, Math.min(...days));
+    const eDate = new Date(year, month, Math.max(...days));
+    const fmt   = d => `${String(d.getDate()).padStart(2,"0")}/` +
+                      `${String(d.getMonth()+1).padStart(2,"0")}/` +
+                      `${d.getFullYear()}`;
+
+    selDates.textContent  = `${fmt(sDate)} – ${fmt(eDate)}`;
+    selDates.style.display = "inline";
+
+    filterDataByDate(sDate, eDate);
+    calEl.style.display = "none";
+  });
+
+  /**********************************
+   * 5. Paginação e Renderização de Pedidos
+   **********************************/
+  const bodyPed     = document.getElementById("pedidosBody");
+  const btnPrev     = document.getElementById("prevPageBtn");
+  const btnNext     = document.getElementById("nextPageBtn");
+  const infoPag     = document.getElementById("paginationInfo");
+  const perPage     = 15;
+  let   pedidosData = [];
+  let   currentPage = 1;
+
+  function renderPedidos(page = 1) {
+    bodyPed.innerHTML = "";
+    const slice = pedidosData.slice((page - 1) * perPage, page * perPage);
+
+    if (!slice.length) {
+      bodyPed.innerHTML = `<tr><td colspan="4" class="text-center">Nenhum pedido encontrado.</td></tr>`;
+    } else {
+      slice.forEach(p => {
+        // Nome: apenas primeiro e último, capitalização
+        const parts = p.nome_comprador.trim().split(/\s+/);
+        const first = parts[0], last = parts[parts.length - 1];
+        const nameFormatted = `${first.charAt(0).toUpperCase()}${first.slice(1).toLowerCase()} ` +
+                              `${last.charAt(0).toUpperCase()}${last.slice(1).toLowerCase()}`;
+
+        // Valor em Real
+        const valorBR = parseFloat(p.valor_venda)
+          .toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+        // Status e cor
+        const raw = p.status.toLowerCase();
+        let statusClass = "active-btn";
+        if (raw === "pagos")       statusClass = "success-btn";
+        else if (raw === "recusado") statusClass = "close-btn";
+        const statusText = raw.charAt(0).toUpperCase() + raw.slice(1);
+
+        bodyPed.insertAdjacentHTML("beforeend", `
           <tr>
-            <td><p class="text-sm">${uf}</p></td>
-            <td><p class="text-sm">${
-              valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
-            }</p></td>
-            <td><p class="text-sm">${perc}%</p></td>
+            <td>${nameFormatted}</td>
+            <td>${p.efetivado_por}</td>
+            <td>${valorBR}</td>
+            <td class="text-end">
+              <span class="status-btn ${statusClass}">${statusText}</span>
+            </td>
           </tr>
         `);
       });
     }
 
-    function filterDataByDate(startDate, endDate) {
-      const fmtISO = d => d.toISOString().split("T")[0];
-      fetch(`/api/agent/pedidos?startDate=${fmtISO(startDate)}&endDate=${fmtISO(endDate)}`)
-        .then(res => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          return res.json();
-        })
-        .then(data => {
-          pedidosData = data;
-          currentPage = 1;
+    const totalPages = Math.max(1, Math.ceil(pedidosData.length / perPage));
+    infoPag.textContent = `Página ${page} de ${totalPages} (${pedidosData.length} registros)`;
+    btnPrev.disabled = page <= 1;
+    btnNext.disabled = page >= totalPages;
+  }
 
-          // Atualiza métricas
-          document.getElementById("clientCount").textContent = data.length;
-          const faturamento = data.reduce((sum,p) => sum + parseFloat(p.valor_venda), 0);
-          document.getElementById("faturamento").textContent =
-            faturamento.toLocaleString("pt-BR",{ style: "currency", currency: "BRL" });
+  btnPrev.addEventListener("click", () => { if (currentPage > 1) renderPedidos(--currentPage); });
+  btnNext.addEventListener("click", () => {
+    const totalPages = Math.ceil(pedidosData.length / perPage);
+    if (currentPage < totalPages) renderPedidos(++currentPage);
+  });
 
-          renderPedidos();
-          renderRegiao(data);
+  function renderRegiao(data) {
+    const resumo = data.reduce((acc, p) => {
+      const uf = p.uf || "ND";
+      acc[uf] = (acc[uf] || 0) + parseFloat(p.valor_venda);
+      return acc;
+    }, {});
+    const total = Object.values(resumo).reduce((sum, v) => sum + v, 0);
+    const tbody  = document.getElementById("regiaoBody");
+    tbody.innerHTML = "";
 
-          // Destaca apenas estados com pedidos
-          const ufs = [...new Set(data.map(p => p.uf).filter(Boolean))];
-          const regions = ufs.map(uf => `BR-${uf}`);
-          mapChart.clearSelectedRegions();
-          mapChart.addSelectedRegions(regions);
-        })
-        .catch(err => {
-          console.error("Erro ao buscar pedidos:", err);
-          bodyPed.innerHTML = `<tr>
-            <td colspan="4" class="text-center text-danger">${err.message}</td>
-          </tr>`;
-        });
-    }
+    Object.entries(resumo).forEach(([uf, valor]) => {
+      const perc = total > 0 ? (valor / total * 100).toFixed(1) : "0.0";
+      tbody.insertAdjacentHTML("beforeend", `
+        <tr>
+          <td><p class="text-sm">${uf}</p></td>
+          <td><p class="text-sm">${
+            valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+          }</p></td>
+          <td><p class="text-sm">${perc}%</p></td>
+        </tr>
+      `);
+    });
+  }
 
-    /**********************************
-     * 6. Inicialização automática
-     **********************************/
-    (function init() {
-      const hoje      = new Date();
-      const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-      const fimMes    = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0);
-      const fmt = d => `${String(d.getDate()).padStart(2,"0")}/` +
-                      `${String(d.getMonth()+1).padStart(2,"0")}/` +
-                      `${d.getFullYear()}`;
+  function filterDataByDate(startDate, endDate) {
+    const fmtISO = d => d.toISOString().split("T")[0];
+    fetch(`/api/agent/pedidos?startDate=${fmtISO(startDate)}&endDate=${fmtISO(endDate)}`)
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then(data => {
+        pedidosData = data;
+        currentPage = 1;
 
-      selDates.textContent  = `${fmt(inicioMes)} – ${fmt(fimMes)}`;
-      selDates.style.display = "inline";
-      filterDataByDate(inicioMes, fimMes);
-    })();
-  </script>     
+        // Atualiza métricas
+        document.getElementById("clientCount").textContent = data.length;
+        const faturamento = data.reduce((sum,p) => sum + parseFloat(p.valor_venda), 0);
+        document.getElementById("faturamento").textContent =
+          faturamento.toLocaleString("pt-BR",{ style: "currency", currency: "BRL" });
+
+        renderPedidos();
+        renderRegiao(data);
+
+        // Destaca apenas estados com pedidos
+        const ufs = [...new Set(data.map(p => p.uf).filter(Boolean))];
+        mapChart.setSelectedRegions(ufs.map(uf => `BR-${uf}`));
+      })
+      .catch(err => {
+        console.error("Erro ao buscar pedidos:", err);
+        bodyPed.innerHTML = `<tr>
+          <td colspan="4" class="text-center text-danger">${err.message}</td>
+        </tr>`;
+      });
+  }
+
+  /**********************************
+   * 6. Inicialização automática
+   **********************************/
+  (function init() {
+    const hoje      = new Date();
+    const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+    const fimMes    = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0);
+    const fmt = d => `${String(d.getDate()).padStart(2,"0")}/` +
+                    `${String(d.getMonth()+1).padStart(2,"0")}/` +
+                    `${d.getFullYear()}`;
+
+    selDates.textContent  = `${fmt(inicioMes)} – ${fmt(fimMes)}`;
+    selDates.style.display = "inline";
+    filterDataByDate(inicioMes, fimMes);
+  })();
+</script>
 </body>
 </html>
