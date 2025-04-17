@@ -57,6 +57,15 @@
         z-index: 1000;
         object-fit: cover;
       }
+
+      /* no seu <head>, dentro da tag <style> */
+      .profile-email {
+        display: inline-block;
+        max-width: 20ch;         /* limita a largura ao equivalente a 20 caracteres */
+        white-space: nowrap;     /* evita quebra de linha */
+        overflow: hidden;        /* esconde o excedente */
+        text-overflow: ellipsis; /* adiciona "..." automaticamente */
+      }
     </style>
     
   </head>
