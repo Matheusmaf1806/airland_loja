@@ -650,9 +650,13 @@
     <script src="/assets/js/main.js"></script>
 
     <script>
-      // Extrai ID do pedido da URL (supõe /invoice/<id>)
-      const pathParts = window.location.pathname.split('/');
-      const pedidoId = pathParts[pathParts.length - 1] || pathParts[pathParts.length - 2];
+      // Extrai ID do pedido da query-string ?id=47
+      const params   = new URLSearchParams(window.location.search);
+      const pedidoId = params.get('id');
+      if (!pedidoId) {
+        console.error('ID do pedido não informado na URL');
+        // aqui talvez você queira redirecionar ou exibir uma mensagem
+      }
 
       // Helpers
       function formatDate(d) {
