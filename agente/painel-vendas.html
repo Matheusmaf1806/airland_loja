@@ -539,29 +539,42 @@
 
   <script>
     /**********************************
-     * 1. Ativação do Mapa (jsVectorMap)
+     * 1. Mapa (jsVectorMap)
      **********************************/
-    const map = new jsVectorMap({
+    const markers = [
+      { name: "São Paulo",       coords: [-23.5505, -46.6333] },
+      { name: "Rio de Janeiro",  coords: [-22.9068, -43.1729] },
+      { name: "Belo Horizonte",  coords: [-19.8157, -43.9542] },
+      { name: "Salvador",        coords: [-12.9714, -38.5014] },
+      { name: "Porto Alegre",    coords: [-30.0346, -51.2177] },
+    ];
+
+    const mapChart = new jsVectorMap({
       map: "world_merc",
       selector: "#map",
       zoomButtons: true,
       focusOn: { region: "BR" },
-      regionStyle: { initial: { fill: "#d1d5db" } },
+      regionStyle: {
+        initial:  { fill: "#d1d5db" },
+        selected: { fill: "#4A6CF7" }
+      },
       labels: { markers: { render: m => m.name } },
       markersSelectable: true,
-      selectedMarkers: [],
-      markers,  // você já deve ter definido `const markers = […]`
+      markers,
       markerStyle: {
-        initial: { fill: "#4A6CF7" },
-        selected: { fill: "#ff5050" },
+        initial:  { fill: "#4A6CF7" },
+        selected: { fill: "#ff5050" }
       },
-      markerLabelStyle: { initial: { fontWeight: 400, fontSize: 14 } },
+      markerLabelStyle: {
+        initial: { fontWeight: 400, fontSize: 14 }
+      }
     });
-  
+
     /**********************************
-     * 2. Inicialização dos Gráficos (Chart.js)
+     * 2. Gráficos (Chart.js) – sem mudanças
      **********************************/
     let chart3, chart4;
+
     const ctx3 = document.getElementById("Chart3")?.getContext("2d");
     if (ctx3) {
       chart3 = new Chart(ctx3, {
@@ -603,6 +616,7 @@
         options: {}
       });
     }
+
     const ctx4 = document.getElementById("Chart4")?.getContext("2d");
     if (ctx4) {
       chart4 = new Chart(ctx4, {
@@ -624,12 +638,13 @@
         options: {}
       });
     }
-  
+
     /**********************************
-     * 3. Lógica do Tema (Light/Dark)
+     * 3. Tema (Light/Dark) – sem mudanças
      **********************************/
     const lightTheme = { darkBorder: "rgba(143,146,161,.1)", darkColor: "#5A6A85" },
           darkTheme  = { darkBorder: "#2b2b42", darkColor: "#838C9A" };
+
     function applyTheme(t) {
       [chart3, chart4].forEach(ch => {
         if (!ch) return;
@@ -640,39 +655,42 @@
         ch.update();
       });
     }
+
     document.querySelector(".darkThemeButton")?.addEventListener("click", () => applyTheme(darkTheme));
     document.querySelector(".lightThemeButton")?.addEventListener("click", () => applyTheme(lightTheme));
     applyTheme(localStorage.getItem("theme")==="dark" ? darkTheme : lightTheme);
-  
+
     /**********************************
      * 4. Calendário + Filtro Dinâmico
      **********************************/
     const btnOpen  = document.getElementById("openCalendarBtn");
     const selDates = document.getElementById("selectedDates");
+
     btnOpen.style.marginBottom = "20px";
     selDates.style.display     = "none";
-  
+
     const calEl = createCalendarComponent();
     calEl.style.position = "absolute";
     calEl.style.display  = "none";
     calEl.style.zIndex   = "1000";
     document.body.appendChild(calEl);
-  
+
     function positionCal() {
       const r = btnOpen.getBoundingClientRect();
       calEl.style.top  = r.bottom + window.scrollY + "px";
       calEl.style.left = r.left   + window.scrollX + "px";
+
       requestAnimationFrame(() => {
         const cr = calEl.getBoundingClientRect();
-        if (cr.right  > window.innerWidth)  {
-          calEl.style.left = `${parseFloat(calEl.style.left) - (cr.right - window.innerWidth + 10)}px`;
+        if (cr.right  > window.innerWidth) {
+          calEl.style.left = `${parseFloat(calEl.style.left) - (cr.right  - window.innerWidth + 10)}px`;
         }
         if (cr.bottom > window.innerHeight) {
           calEl.style.top  = `${parseFloat(calEl.style.top ) - (cr.bottom - window.innerHeight + 10)}px`;
         }
       });
     }
-  
+
     btnOpen.addEventListener("click", () => {
       if (calEl.style.display === "none") {
         positionCal();
@@ -681,34 +699,34 @@
         calEl.style.display = "none";
       }
     });
-  
+
     document.addEventListener("click", e => {
       if (!calEl.contains(e.target) && e.target !== btnOpen) {
         calEl.style.display = "none";
       }
     });
-  
+
     const btnApply = calEl.querySelector(".calendar__button--primary");
     btnApply.addEventListener("click", () => {
       const sel = Array.from(calEl.querySelectorAll(".calendar__date--selected"));
       if (!sel.length) return;
-  
+
       const year  = +calEl.querySelector("#calendar__year").value;
       const month = +calEl.querySelector("#calendar__month").value;
       const days  = sel.map(d => +d.textContent);
       const sDate = new Date(year, month, Math.min(...days));
       const eDate = new Date(year, month, Math.max(...days));
-      const fmt   = d => `${String(d.getDate()).padStart(2,"0")}/`+
-                        `${String(d.getMonth()+1).padStart(2,"0")}/`+
+      const fmt   = d => `${String(d.getDate()).padStart(2,"0")}/` +
+                        `${String(d.getMonth()+1).padStart(2,"0")}/` +
                         `${d.getFullYear()}`;
-  
-      selDates.textContent = `${fmt(sDate)} – ${fmt(eDate)}`;
+
+      selDates.textContent  = `${fmt(sDate)} – ${fmt(eDate)}`;
       selDates.style.display = "inline";
-  
+
       filterDataByDate(sDate, eDate);
       calEl.style.display = "none";
     });
-  
+
     /**********************************
      * 5. Paginação e Renderização de Pedidos
      **********************************/
@@ -717,132 +735,129 @@
     const btnNext     = document.getElementById("nextPageBtn");
     const infoPag     = document.getElementById("paginationInfo");
     const perPage     = 15;
-    let pedidosData   = [];
-    let currentPage   = 1;
-  
-    function formatCurrency(v) {
-      return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
-    }
-  
-    function capitalize(str) {
-      if (!str) return '';
-      str = str.toLowerCase();
-      return str.charAt(0).toUpperCase() + str.slice(1);
-    }
-  
+    let   pedidosData = [];
+    let   currentPage = 1;
+
     function renderPedidos(page = 1) {
       bodyPed.innerHTML = "";
       const slice = pedidosData.slice((page - 1) * perPage, page * perPage);
+
       if (!slice.length) {
         bodyPed.innerHTML = `<tr><td colspan="4" class="text-center">Nenhum pedido encontrado.</td></tr>`;
       } else {
         slice.forEach(p => {
-          // Cliente: só primeiro e último nome, capitalizados
-          const parts   = p.nome_comprador.trim().split(/\s+/);
-          const first   = capitalize(parts[0]);
-          const last    = parts.length > 1 ? capitalize(parts[parts.length - 1]) : '';
-          const cliente = last ? `${first} ${last}` : first;
-          // Status: mapeia classes
-          const stLower = p.status.toLowerCase();
-          let statusClass = 'status-btn';
-          if (['pago','paid','pagos'].includes(stLower)) statusClass += ' success-btn';
-          else if (['recusado','refused'].includes(stLower)) statusClass += ' close-btn';
-          else if (['pendente','pending'].includes(stLower)) statusClass += ' active-btn';
-          const statusText = capitalize(p.status);
-  
-          bodyPed.insertAdjacentHTML('beforeend', `
+          // Nome: apenas primeiro e último, capitalização
+          const parts = p.nome_comprador.trim().split(/\s+/);
+          const first = parts[0], last = parts[parts.length - 1];
+          const nameFormatted = `${first.charAt(0).toUpperCase()}${first.slice(1).toLowerCase()} ` +
+                                `${last.charAt(0).toUpperCase()}${last.slice(1).toLowerCase()}`;
+
+          // Valor em Real
+          const valorBR = parseFloat(p.valor_venda)
+            .toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+          // Status e cor
+          const raw = p.status.toLowerCase();
+          let statusClass = "active-btn";
+          if (raw === "pagos")       statusClass = "success-btn";
+          else if (raw === "recusado") statusClass = "close-btn";
+          const statusText = raw.charAt(0).toUpperCase() + raw.slice(1);
+
+          bodyPed.insertAdjacentHTML("beforeend", `
             <tr>
-              <td>${cliente}</td>
+              <td>${nameFormatted}</td>
               <td>${p.efetivado_por}</td>
-              <td>${formatCurrency(parseFloat(p.valor_venda))}</td>
-              <td class="text-end"><span class="${statusClass}">${statusText}</span></td>
+              <td>${valorBR}</td>
+              <td class="text-end">
+                <span class="status-btn ${statusClass}">${statusText}</span>
+              </td>
             </tr>
           `);
         });
       }
+
       const totalPages = Math.max(1, Math.ceil(pedidosData.length / perPage));
       infoPag.textContent = `Página ${page} de ${totalPages} (${pedidosData.length} registros)`;
       btnPrev.disabled = page <= 1;
       btnNext.disabled = page >= totalPages;
     }
-  
-    btnPrev.addEventListener("click", () => {
-      if (currentPage > 1) {
-        renderPedidos(--currentPage);
-      }
-    });
+
+    btnPrev.addEventListener("click", () => { if (currentPage > 1) renderPedidos(--currentPage); });
     btnNext.addEventListener("click", () => {
       const totalPages = Math.ceil(pedidosData.length / perPage);
-      if (currentPage < totalPages) {
-        renderPedidos(++currentPage);
-      }
+      if (currentPage < totalPages) renderPedidos(++currentPage);
     });
-  
-    /**********************************
-     * 6. Pedidos por Região
-     **********************************/
+
     function renderRegiao(data) {
       const resumo = data.reduce((acc, p) => {
-        const uf = p.uf || 'ND';
+        const uf = p.uf || "ND";
         acc[uf] = (acc[uf] || 0) + parseFloat(p.valor_venda);
         return acc;
       }, {});
-      // Atualiza tabela
       const total = Object.values(resumo).reduce((sum, v) => sum + v, 0);
-      const tbody = document.getElementById("regiaoBody");
+      const tbody  = document.getElementById("regiaoBody");
       tbody.innerHTML = "";
+
       Object.entries(resumo).forEach(([uf, valor]) => {
         const perc = total > 0 ? (valor / total * 100).toFixed(1) : "0.0";
         tbody.insertAdjacentHTML("beforeend", `
           <tr>
             <td><p class="text-sm">${uf}</p></td>
-            <td><p class="text-sm">${formatCurrency(valor)}</p></td>
+            <td><p class="text-sm">${
+              valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+            }</p></td>
             <td><p class="text-sm">${perc}%</p></td>
           </tr>
         `);
       });
-      // Destaca apenas os estados com resultado
-      const regions = Object.keys(resumo).map(uf => `BR-${uf}`);
-      map.setSelected("regions", regions);
     }
-  
-    /**********************************
-     * 7. Busca e inicialização
-     **********************************/
+
     function filterDataByDate(startDate, endDate) {
-      const iso = d => d.toISOString().split("T")[0];
-      fetch(`/api/agent/pedidos?startDate=${iso(startDate)}&endDate=${iso(endDate)}`)
+      const fmtISO = d => d.toISOString().split("T")[0];
+      fetch(`/api/agent/pedidos?startDate=${fmtISO(startDate)}&endDate=${fmtISO(endDate)}`)
         .then(res => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
           return res.json();
         })
         .then(data => {
           pedidosData = data;
           currentPage = 1;
+
+          // Atualiza métricas
           document.getElementById("clientCount").textContent = data.length;
-          const faturamento = data.reduce((sum, p) => sum + parseFloat(p.valor_venda), 0);
-          document.getElementById("faturamento").textContent = formatCurrency(faturamento);
+          const faturamento = data.reduce((sum,p) => sum + parseFloat(p.valor_venda), 0);
+          document.getElementById("faturamento").textContent =
+            faturamento.toLocaleString("pt-BR",{ style: "currency", currency: "BRL" });
+
           renderPedidos();
           renderRegiao(data);
+
+          // Destaca apenas estados com pedidos
+          const ufs = [...new Set(data.map(p => p.uf).filter(Boolean))];
+          const regions = ufs.map(uf => `BR-${uf}`);
+          mapChart.clearSelectedRegions();
+          mapChart.addSelectedRegions(regions);
         })
         .catch(err => {
           console.error("Erro ao buscar pedidos:", err);
-          bodyPed.innerHTML = `
-            <tr>
-              <td colspan="4" class="text-center text-danger">${err.message}</td>
-            </tr>
-          `;
+          bodyPed.innerHTML = `<tr>
+            <td colspan="4" class="text-center text-danger">${err.message}</td>
+          </tr>`;
         });
     }
-  
+
+    /**********************************
+     * 6. Inicialização automática
+     **********************************/
     (function init() {
       const hoje      = new Date();
       const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-      const fimMes    = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
-      const fmt       = d => `${String(d.getDate()).padStart(2,"0")}/`+
-                            `${String(d.getMonth()+1).padStart(2,"0")}/`+
-                            `${d.getFullYear()}`;
-      selDates.textContent = `${fmt(inicioMes)} – ${fmt(fimMes)}`;
+      const fimMes    = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0);
+      const fmt = d => `${String(d.getDate()).padStart(2,"0")}/` +
+                      `${String(d.getMonth()+1).padStart(2,"0")}/` +
+                      `${d.getFullYear()}`;
+
+      selDates.textContent  = `${fmt(inicioMes)} – ${fmt(fimMes)}`;
       selDates.style.display = "inline";
       filterDataByDate(inicioMes, fimMes);
     })();
