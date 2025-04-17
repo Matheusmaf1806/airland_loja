@@ -433,168 +433,158 @@
   <script src="/assets/js/main.js"></script>
 
   <script>
-    // 0) Ajustes de estilo via JS
-  
-    // 0.1) .btn-sm padding e peso
-    document.querySelectorAll('.btn-sm').forEach(btn => {
-      btn.style.padding = '5px 15px';
-      btn.style.fontWeight = '400';
-    });
-  
-    // 0.2) Quebra “Datas selecionadas” em duas linhas, alinhado à direita
-    const selDatesEl = document.getElementById('selectedDates');
-    if (selDatesEl) {
-      const wrapper = selDatesEl.parentElement;
-      wrapper.style.display = 'flex';
-      wrapper.style.flexDirection = 'column';
-      wrapper.style.alignItems = 'flex-end';
-    }
-  
-    // 1) Helper para formatar valores em Real brasileiro
+    // Helper para formatar valores em Real brasileiro
     const formatBRL = val =>
       Number(val).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   
-    // 4) Tema (Light/Dark)
-    const lightTheme = { darkBorder: "rgba(143,146,161,.1)", darkColor: "#5A6A85" },
-          darkTheme  = { darkBorder: "#2b2b42",            darkColor: "#838C9A" };
-    function applyTheme(t) {
-      [chart3, chart4].forEach(ch => {
-        if (!ch) return;
-        ch.options.scales.y.grid.color       = t.darkBorder;
-        ch.options.scales.y.grid.borderColor = t.darkBorder;
-        ch.options.scales.x.ticks.color      = t.darkColor;
-        ch.options.scales.y.ticks.color      = t.darkColor;
-        ch.update();
-      });
-    }
-    document.querySelector(".darkThemeButton")?.addEventListener("click", () => applyTheme(darkTheme));
-    document.querySelector(".lightThemeButton")?.addEventListener("click", () => applyTheme(lightTheme));
-    applyTheme(localStorage.getItem("theme")==="dark" ? darkTheme : lightTheme);
+    // ====== 1) Configuração e abertura do calendário ======
+    const btnOpen      = document.getElementById('openCalendarBtn');
+    const selDatesEl   = document.getElementById('selectedDates');
+    const calEl        = createCalendarComponent();
   
-    // 5) Calendário + Filtro Dinâmico
-    const btnOpen = document.getElementById("openCalendarBtn");
-    btnOpen.style.marginBottom = "20px";
-    const calEl = createCalendarComponent();
+    // Estilo e posicionamento iniciais do calendário
     Object.assign(calEl.style, {
-      position: "absolute",
-      display:  "none",
-      zIndex:   "1000"
+      position:  'absolute',
+      display:   'none',
+      zIndex:    '1000'
     });
     document.body.appendChild(calEl);
   
     function positionCal() {
       const r = btnOpen.getBoundingClientRect();
-      calEl.style.top  = r.bottom + window.scrollY + "px";
-      calEl.style.left = r.left   + window.scrollX + "px";
+      calEl.style.top  = `${r.bottom + window.scrollY}px`;
+      calEl.style.left = `${r.left   + window.scrollX}px`;
       requestAnimationFrame(() => {
         const cr = calEl.getBoundingClientRect();
+        // Ajusta se estourar a janela
         if (cr.right  > window.innerWidth) {
           calEl.style.left = `${parseFloat(calEl.style.left) - (cr.right - window.innerWidth + 10)}px`;
         }
         if (cr.bottom > window.innerHeight) {
-          calEl.style.top = `${parseFloat(calEl.style.top) - (cr.bottom - window.innerHeight + 10)}px`;
+          calEl.style.top  = `${parseFloat(calEl.style.top)  - (cr.bottom - window.innerHeight + 10)}px`;
         }
       });
     }
   
-    btnOpen.addEventListener("click", () => {
-      if (calEl.style.display === "none") {
+    btnOpen.addEventListener('click', () => {
+      if (calEl.style.display === 'none') {
         positionCal();
-        calEl.style.display = "block";
+        calEl.style.display = 'block';
       } else {
-        calEl.style.display = "none";
+        calEl.style.display = 'none';
       }
     });
-    document.addEventListener("click", e => {
+  
+    document.addEventListener('click', e => {
       if (!calEl.contains(e.target) && e.target !== btnOpen) {
-        calEl.style.display = "none";
+        calEl.style.display = 'none';
       }
     });
-    calEl.querySelector(".calendar__button--primary")
-      .addEventListener("click", () => {
-        const sel = Array.from(calEl.querySelectorAll(".calendar__date--selected"));
+  
+    // Ao confirmar datas no calendário
+    calEl.querySelector('.calendar__button--primary')
+      .addEventListener('click', () => {
+        const sel   = Array.from(calEl.querySelectorAll('.calendar__date--selected'));
         if (!sel.length) return;
-        const year  = +calEl.querySelector("#calendar__year").value;
-        const month = +calEl.querySelector("#calendar__month").value;
+  
+        const year  = +calEl.querySelector('#calendar__year').value;
+        const month = +calEl.querySelector('#calendar__month').value;
         const days  = sel.map(d => +d.textContent);
+  
         const sDate = new Date(year, month, Math.min(...days));
         const eDate = new Date(year, month, Math.max(...days));
-        const fmt   = d => `${String(d.getDate()).padStart(2,"0")}/` +
-                          `${String(d.getMonth()+1).padStart(2,"0")}/` +
-                          `${d.getFullYear()}`;
+  
+        const fmt = d =>
+          `${String(d.getDate()).padStart(2,'0')}/` +
+          `${String(d.getMonth()+1).padStart(2,'0')}/` +
+          `${d.getFullYear()}`;
+  
         selDatesEl.textContent = `${fmt(sDate)} – ${fmt(eDate)}`;
-        filterDataByDate(sDate, eDate);
-        calEl.style.display = "none";
+        fetchPedidos(sDate, eDate);
+        calEl.style.display = 'none';
       });
   
-    // 6) Paginação e Renderização de Pedidos
-    const bodyPed  = document.getElementById("pedidosBody");
-    const btnPrev  = document.getElementById("prevPageBtn");
-    const btnNext  = document.getElementById("nextPageBtn");
-    const infoPag  = document.getElementById("paginationInfo");
-    const perPage  = 15;
-    let pedidosData = [], currentPage = 1;
+    // ====== 2) Buscar e renderizar pedidos ======
+    const bodyPed = document.getElementById('pedidosBody');
   
-    function renderPedidos(page = 1) {
-      bodyPed.innerHTML = "";
-      const slice = pedidosData.slice((page - 1)*perPage, page*perPage);
-      if (!slice.length) {
-        bodyPed.innerHTML = `<tr><td colspan="4" class="text-center">Nenhum pedido encontrado.</td></tr>`;
-      } else {
-        slice.forEach(p => {
-          const parts = p.nome_comprador.trim().split(/\s+/);
-          const first = parts[0] || "";
-          const last  = parts[parts.length - 1] || "";
-          const cliente = first.charAt(0).toUpperCase() + first.slice(1).toLowerCase()
-                        + " "
-                        + last.charAt(0).toUpperCase() + last.slice(1).toLowerCase();
-          const valorNum = parseFloat(p.valor_venda) || 0;
-          const valor    = formatBRL(valorNum);
-          const key      = p.status.toLowerCase();
-          let cls        = "active-btn";
-          if (key === "pago")    cls = "success-btn";
-          if (key === "recusado") cls = "close-btn";
-          const statusText = key.charAt(0).toUpperCase() + key.slice(1);
-          bodyPed.insertAdjacentHTML("beforeend", `
+    function fetchPedidos(startDate, endDate) {
+      const iso = d => d.toISOString().split('T')[0];
+      fetch(`/api/agent/pedidos?startDate=${iso(startDate)}&endDate=${iso(endDate)}`)
+        .then(r => r.json())
+        .then(data => renderPedidos(data))
+        .catch(err => {
+          bodyPed.innerHTML = `
             <tr>
-              <td class="text-start">${cliente}</td>
-              <td class="text-center">${p.efetivado_por}</td>
-              <td class="text-center">${valor}</td>
-              <td class="text-center"><span class="status-btn ${cls}">${statusText}</span></td>
+              <td colspan="6" class="text-center text-danger">
+                Erro: ${err.message}
+              </td>
             </tr>
-          `);
+          `;
         });
-      }
-      const totalPages = Math.max(1, Math.ceil(pedidosData.length / perPage));
-      infoPag.textContent = `Página ${currentPage} de ${totalPages} (${pedidosData.length} registros)`;
-      btnPrev.disabled = currentPage <= 1;
-      btnNext.disabled = currentPage >= totalPages;
     }
   
-    btnPrev.addEventListener("click", () => { if (currentPage > 1) renderPedidos(--currentPage); });
-    btnNext.addEventListener("click", () => {
-      const tp = Math.ceil(pedidosData.length / perPage);
-      if (currentPage < tp) renderPedidos(++currentPage);
-    });
+    function renderPedidos(data) {
+      bodyPed.innerHTML = '';
   
-    // 9) Trunca email no dropdown
-    document.querySelectorAll('.profile-email').forEach(el => {
-      const text = el.textContent.trim();
-      if (text.length > 20) {
-        el.textContent = text.substring(0, 20) + '...';
+      if (!data.length) {
+        bodyPed.innerHTML = `
+          <tr>
+            <td colspan="6" class="text-center">Nenhum pedido encontrado.</td>
+          </tr>
+        `;
+        return;
       }
-    });
   
-    // 10) Inicialização automática
-    (function init(){
+      data.forEach(p => {
+        // Formata nome: primeiro + último
+        const parts = p.nome_comprador.trim().split(/\s+/);
+        const nomeFormatted = parts.length > 1
+          ? `${parts[0]} ${parts[parts.length - 1]}`
+          : parts[0];
+  
+        // Define classe de status
+        const key = p.status.toLowerCase();
+        let cls = 'active-btn';
+        if (key === 'pago')     cls = 'success-btn';
+        if (key === 'recusado') cls = 'close-btn';
+  
+        // Botão de ação abre detalhe do pedido
+        const actionBtn = `
+          <button onclick="window.location.href='/agente/pedido/${p.id}'">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i>
+          </button>
+        `;
+  
+        bodyPed.insertAdjacentHTML('beforeend', `
+          <tr>
+            <td><p>${p.id}</p></td>
+            <td><p>${nomeFormatted}</p></td>
+            <td><p>${p.forma_pagamento}</p></td>
+            <td><p>${formatBRL(parseFloat(p.valor_venda) || 0)}</p></td>
+            <td>
+              <span class="status-btn ${cls}">
+                ${key.charAt(0).toUpperCase() + key.slice(1)}
+              </span>
+            </td>
+            <td>${actionBtn}</td>
+          </tr>
+        `);
+      });
+    }
+  
+    // ====== 3) Inicialização automática (filtra mês atual) ======
+    (function init() {
       const hoje      = new Date();
       const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-      const fimMes    = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0);
-      const fmt       = d => `${String(d.getDate()).padStart(2,'0')}/`+
-                            `${String(d.getMonth()+1).padStart(2,'0')}/`+
-                            `${d.getFullYear()}`;
+      const fimMes    = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+  
+      const fmt = d =>
+        `${String(d.getDate()).padStart(2,'0')}/` +
+        `${String(d.getMonth()+1).padStart(2,'0')}/` +
+        `${d.getFullYear()}`;
+  
       selDatesEl.textContent = `${fmt(inicioMes)} – ${fmt(fimMes)}`;
-      filterDataByDate(inicioMes, fimMes);
+      fetchPedidos(inicioMes, fimMes);
     })();
   </script>  
 </body>
