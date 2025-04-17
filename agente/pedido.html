@@ -666,8 +666,11 @@
 
           // Pagamento / Comprador
           const nomeComp = p.nome_comprador
-            ? p.nome_comprador.charAt(0).toUpperCase() + p.nome_comprador.slice(1)
-            : '–';
+          ? (() => {
+              const lower = p.nome_comprador.toLowerCase();
+              return lower.charAt(0).toUpperCase() + lower.slice(1);
+            })()
+          : '–';
           document.getElementById('nomeComprador').textContent = nomeComp;
 
           const meio = (p.meio_pgto || '').toLowerCase();
