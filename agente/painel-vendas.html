@@ -539,17 +539,23 @@
 
   <script>
     /**********************************
-     * 1. Mapa de Estados do Brasil
+     * 1. Ativação do Mapa (jsVectorMap)
      **********************************/
-    const mapChart = new jsVectorMap({
-      map: 'brazil_merc',
-      selector: '#map',
+    const map = new jsVectorMap({
+      map: "world_merc",
+      selector: "#map",
       zoomButtons: true,
-      regionStyle: {
-        initial: { fill: '#d1d5db' },
-        selected: { fill: '#4A6CF7' },
+      focusOn: { region: "BR" },
+      regionStyle: { initial: { fill: "#d1d5db" } },
+      labels: { markers: { render: m => m.name } },
+      markersSelectable: true,
+      selectedMarkers: [],
+      markers,  // você já deve ter definido `const markers = […]`
+      markerStyle: {
+        initial: { fill: "#4A6CF7" },
+        selected: { fill: "#ff5050" },
       },
-      selectedRegions: [], // começa sem nenhum estado selecionado
+      markerLabelStyle: { initial: { fontWeight: 400, fontSize: 14 } },
     });
   
     /**********************************
@@ -604,9 +610,13 @@
         data: {
           labels: ["Jan","Fev","Mar","Abr","Mai","Jun"],
           datasets: [{
+            backgroundColor: "#4A6CF7",
+            borderColor: "transparent",
             borderRadius: 20,
             data: [600,700,1000,700,650,800],
           },{
+            backgroundColor: "#d50100",
+            borderColor: "transparent",
             borderRadius: 20,
             data: [690,740,720,1120,876,900],
           }]
@@ -616,17 +626,17 @@
     }
   
     /**********************************
-     * 3. Tema (Light/Dark)
+     * 3. Lógica do Tema (Light/Dark)
      **********************************/
     const lightTheme = { darkBorder: "rgba(143,146,161,.1)", darkColor: "#5A6A85" },
           darkTheme  = { darkBorder: "#2b2b42", darkColor: "#838C9A" };
     function applyTheme(t) {
       [chart3, chart4].forEach(ch => {
         if (!ch) return;
-        ch.options.scales.y.grid.color = t.darkBorder;
+        ch.options.scales.y.grid.color    = t.darkBorder;
         ch.options.scales.y.grid.borderColor = t.darkBorder;
-        ch.options.scales.x.ticks.color = t.darkColor;
-        ch.options.scales.y.ticks.color = t.darkColor;
+        ch.options.scales.x.ticks.color   = t.darkColor;
+        ch.options.scales.y.ticks.color   = t.darkColor;
         ch.update();
       });
     }
@@ -678,37 +688,47 @@
       }
     });
   
-    calEl.querySelector(".calendar__button--primary")
-      .addEventListener("click", () => {
-        const sel = Array.from(calEl.querySelectorAll(".calendar__date--selected"));
-        if (!sel.length) return;
+    const btnApply = calEl.querySelector(".calendar__button--primary");
+    btnApply.addEventListener("click", () => {
+      const sel = Array.from(calEl.querySelectorAll(".calendar__date--selected"));
+      if (!sel.length) return;
   
-        const year  = +calEl.querySelector("#calendar__year").value;
-        const month = +calEl.querySelector("#calendar__month").value;
-        const days  = sel.map(d => +d.textContent);
-        const sDate = new Date(year, month, Math.min(...days));
-        const eDate = new Date(year, month, Math.max(...days));
-        const fmt   = d => `${String(d.getDate()).padStart(2,"0")}/`+
-                          `${String(d.getMonth()+1).padStart(2,"0")}/`+
-                          `${d.getFullYear()}`;
+      const year  = +calEl.querySelector("#calendar__year").value;
+      const month = +calEl.querySelector("#calendar__month").value;
+      const days  = sel.map(d => +d.textContent);
+      const sDate = new Date(year, month, Math.min(...days));
+      const eDate = new Date(year, month, Math.max(...days));
+      const fmt   = d => `${String(d.getDate()).padStart(2,"0")}/`+
+                        `${String(d.getMonth()+1).padStart(2,"0")}/`+
+                        `${d.getFullYear()}`;
   
-        selDates.textContent = `${fmt(sDate)} – ${fmt(eDate)}`;
-        selDates.style.display = "inline";
+      selDates.textContent = `${fmt(sDate)} – ${fmt(eDate)}`;
+      selDates.style.display = "inline";
   
-        filterDataByDate(sDate, eDate);
-        calEl.style.display = "none";
-      });
+      filterDataByDate(sDate, eDate);
+      calEl.style.display = "none";
+    });
   
     /**********************************
      * 5. Paginação e Renderização de Pedidos
      **********************************/
-    const bodyPed  = document.getElementById("pedidosBody");
-    const btnPrev  = document.getElementById("prevPageBtn");
-    const btnNext  = document.getElementById("nextPageBtn");
-    const infoPag  = document.getElementById("paginationInfo");
-    const perPage  = 15;
-    let pedidosData  = [];
-    let currentPage  = 1;
+    const bodyPed     = document.getElementById("pedidosBody");
+    const btnPrev     = document.getElementById("prevPageBtn");
+    const btnNext     = document.getElementById("nextPageBtn");
+    const infoPag     = document.getElementById("paginationInfo");
+    const perPage     = 15;
+    let pedidosData   = [];
+    let currentPage   = 1;
+  
+    function formatCurrency(v) {
+      return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+    }
+  
+    function capitalize(str) {
+      if (!str) return '';
+      str = str.toLowerCase();
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    }
   
     function renderPedidos(page = 1) {
       bodyPed.innerHTML = "";
@@ -717,29 +737,25 @@
         bodyPed.innerHTML = `<tr><td colspan="4" class="text-center">Nenhum pedido encontrado.</td></tr>`;
       } else {
         slice.forEach(p => {
-          // Formata nome: só primeiro e último, com inicial maiúscula
-          const parts = p.nome_comprador.split(' ');
-          const nome  = `${parts[0]} ${parts[parts.length-1]}`;
-          const nomeFmt = nome.charAt(0).toUpperCase() + nome.slice(1).toLowerCase();
-  
-          // Formata valor em R$ pt-BR
-          const valorFmt = new Intl.NumberFormat('pt-BR', {
-            style: 'currency', currency: 'BRL'
-          }).format(p.valor_venda);
-  
-          // Mapeia status para classe
-          const st = p.status.toLowerCase();
-          let cls = 'status-btn active-btn';
-          if (st === 'pago')      cls = 'status-btn success-btn';
-          else if (st === 'recusado') cls = 'status-btn close-btn';
-          const statusFmt = st.charAt(0).toUpperCase() + st.slice(1);
+          // Cliente: só primeiro e último nome, capitalizados
+          const parts   = p.nome_comprador.trim().split(/\s+/);
+          const first   = capitalize(parts[0]);
+          const last    = parts.length > 1 ? capitalize(parts[parts.length - 1]) : '';
+          const cliente = last ? `${first} ${last}` : first;
+          // Status: mapeia classes
+          const stLower = p.status.toLowerCase();
+          let statusClass = 'status-btn';
+          if (['pago','paid','pagos'].includes(stLower)) statusClass += ' success-btn';
+          else if (['recusado','refused'].includes(stLower)) statusClass += ' close-btn';
+          else if (['pendente','pending'].includes(stLower)) statusClass += ' active-btn';
+          const statusText = capitalize(p.status);
   
           bodyPed.insertAdjacentHTML('beforeend', `
             <tr>
-              <td>${nomeFmt}</td>
+              <td>${cliente}</td>
               <td>${p.efetivado_por}</td>
-              <td>${valorFmt}</td>
-              <td class="text-end"><span class="${cls}">${statusFmt}</span></td>
+              <td>${formatCurrency(parseFloat(p.valor_venda))}</td>
+              <td class="text-end"><span class="${statusClass}">${statusText}</span></td>
             </tr>
           `);
         });
@@ -751,15 +767,19 @@
     }
   
     btnPrev.addEventListener("click", () => {
-      if (currentPage > 1) renderPedidos(--currentPage);
+      if (currentPage > 1) {
+        renderPedidos(--currentPage);
+      }
     });
     btnNext.addEventListener("click", () => {
       const totalPages = Math.ceil(pedidosData.length / perPage);
-      if (currentPage < totalPages) renderPedidos(++currentPage);
+      if (currentPage < totalPages) {
+        renderPedidos(++currentPage);
+      }
     });
   
     /**********************************
-     * 6. Tabela de Pedidos por Região
+     * 6. Pedidos por Região
      **********************************/
     function renderRegiao(data) {
       const resumo = data.reduce((acc, p) => {
@@ -767,65 +787,58 @@
         acc[uf] = (acc[uf] || 0) + parseFloat(p.valor_venda);
         return acc;
       }, {});
-      const total = Object.values(resumo).reduce((sum, v) => sum + v, 0);
-  
       // Atualiza tabela
-      const tbody = document.getElementById('regiaoBody');
-      tbody.innerHTML = '';
+      const total = Object.values(resumo).reduce((sum, v) => sum + v, 0);
+      const tbody = document.getElementById("regiaoBody");
+      tbody.innerHTML = "";
       Object.entries(resumo).forEach(([uf, valor]) => {
-        const perc = total > 0 ? `${(valor / total * 100).toFixed(1)}%` : '0%';
-        const valorFmt = new Intl.NumberFormat('pt-BR', {
-          style: 'currency', currency: 'BRL'
-        }).format(valor);
-        tbody.insertAdjacentHTML('beforeend', `
+        const perc = total > 0 ? (valor / total * 100).toFixed(1) : "0.0";
+        tbody.insertAdjacentHTML("beforeend", `
           <tr>
             <td><p class="text-sm">${uf}</p></td>
-            <td><p class="text-sm">${valorFmt}</p></td>
-            <td><p class="text-sm">${perc}</p></td>
+            <td><p class="text-sm">${formatCurrency(valor)}</p></td>
+            <td><p class="text-sm">${perc}%</p></td>
           </tr>
         `);
       });
-  
-      // Destaca apenas os estados com resultados no mapa
-      mapChart.setSelectedRegions(Object.keys(resumo));
+      // Destaca apenas os estados com resultado
+      const regions = Object.keys(resumo).map(uf => `BR-${uf}`);
+      map.setSelected("regions", regions);
     }
   
     /**********************************
-     * 7. Busca e Filtra Pedidos via API
+     * 7. Busca e inicialização
      **********************************/
     function filterDataByDate(startDate, endDate) {
-      const fmtISO = d => d.toISOString().split("T")[0];
-      fetch(`/api/agent/pedidos?startDate=${fmtISO(startDate)}&endDate=${fmtISO(endDate)}`, {
-        credentials: 'include'
-      })
+      const iso = d => d.toISOString().split("T")[0];
+      fetch(`/api/agent/pedidos?startDate=${iso(startDate)}&endDate=${iso(endDate)}`)
         .then(res => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
           return res.json();
         })
         .then(data => {
           pedidosData = data;
           currentPage = 1;
-          // Atualiza métricas
           document.getElementById("clientCount").textContent = data.length;
-          const fatur = data.reduce((sum, p) => sum + parseFloat(p.valor_venda), 0);
-          document.getElementById("faturamento").textContent =
-            new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' }).format(fatur);
+          const faturamento = data.reduce((sum, p) => sum + parseFloat(p.valor_venda), 0);
+          document.getElementById("faturamento").textContent = formatCurrency(faturamento);
           renderPedidos();
           renderRegiao(data);
         })
         .catch(err => {
           console.error("Erro ao buscar pedidos:", err);
-          bodyPed.innerHTML = `<tr><td colspan="4" class="text-center text-danger">${err.message}</td></tr>`;
+          bodyPed.innerHTML = `
+            <tr>
+              <td colspan="4" class="text-center text-danger">${err.message}</td>
+            </tr>
+          `;
         });
     }
   
-    /**********************************
-     * 8. Inicialização Automática
-     **********************************/
     (function init() {
       const hoje      = new Date();
       const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-      const fimMes    = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0);
+      const fimMes    = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
       const fmt       = d => `${String(d.getDate()).padStart(2,"0")}/`+
                             `${String(d.getMonth()+1).padStart(2,"0")}/`+
                             `${d.getFullYear()}`;
@@ -833,6 +846,6 @@
       selDates.style.display = "inline";
       filterDataByDate(inicioMes, fimMes);
     })();
-  </script>         
+  </script>     
 </body>
 </html>
