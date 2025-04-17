@@ -666,10 +666,13 @@
 
           // Pagamento / Comprador
           const nomeComp = p.nome_comprador
-          ? (() => {
-              const lower = p.nome_comprador.toLowerCase();
-              return lower.charAt(0).toUpperCase() + lower.slice(1);
-            })()
+          ? p.nome_comprador
+              .toLowerCase()
+              .split(' ')
+              .map(
+                w => w.charAt(0).toUpperCase() + w.slice(1)
+              )
+              .join(' ')
           : '–';
           document.getElementById('nomeComprador').textContent = nomeComp;
 
