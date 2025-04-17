@@ -7,15 +7,34 @@ const supabase = createClient(
 
 module.exports = async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, id } = req.query;
 
-    // Busca em supplier_pedidos em vez de pedidos
-    const { data, error } = await supabase
-      .from('supplier_pedidos')
-      .select('*')
-      .gte('data_venda', startDate)
-      .lte('data_venda', endDate)
-      .order('data_venda', { ascending: false });
+    let data, error;
+
+    if (id) {
+      // Fetch single pedido by its ID
+      ({ data, error } = await supabase
+        .from('supplier_pedidos')
+        .select('*')
+        .eq('id', id)
+        .single()
+      );
+    } else {
+      // If no id, require both startDate and endDate
+      if (!startDate || !endDate) {
+        return res
+          .status(400)
+          .json({ error: 'startDate e endDate são obrigatórios.' });
+      }
+      // Fetch pedidos in the date range
+      ({ data, error } = await supabase
+        .from('supplier_pedidos')
+        .select('*')
+        .gte('data_venda', startDate)
+        .lte('data_venda', endDate)
+        .order('data_venda', { ascending: false })
+      );
+    }
 
     if (error) throw error;
     res.status(200).json(data);
