@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -289,7 +290,7 @@
       <!-- ================= Seção Principal ================= -->
       <section class="section">
         <div class="container-fluid">
-          <!-- ===== Title Wrapper: Título à esquerda e controles à direita ===== -->
+          <!-- ===== Title Wrapper: Título e calendário ===== -->
           <div class="title-wrapper pt-30">
             <div class="row align-items-center">
               <div class="col-md-6">
@@ -298,34 +299,43 @@
                 </div>
               </div>
               <div class="col-md-6 d-flex justify-content-end align-items-center">
-                <!-- Calendário e datas -->
-                <div class="date-selector">
+                <!-- Calendário -->
+                <div class="date-selector me-3">
                   <span>Datas selecionadas:</span>
                   <strong id="selectedDates">[vazio]</strong>
                 </div>
-                <button id="openCalendarBtn" class="main-btn primary-btn btn-hover me-4">Selecionar Data</button>
-
-                <!-- Itens por página -->
-                <label for="pageSizeSelect" class="me-2 mb-0">Itens por página:</label>
-                <select id="pageSizeSelect" class="form-select w-auto me-4">
-                  <option value="10" selected>10</option>
-                  <option value="25">25</option>
-                  <option value="50">50</option>
-                  <option value="100">100</option>
-                </select>
-
-                <!-- Exportar -->
-                <button id="exportBtn" class="main-btn primary-btn btn-hover">Exportar CSV</button>
+                <button id="openCalendarBtn" class="main-btn primary-btn btn-hover">
+                  Selecionar Data
+                </button>
               </div>
             </div>
           </div>
           <!-- ===== Fim do Title Wrapper ===== -->
-
+      
           <div class="row">
             <div class="col-lg-12">
               <div class="card-style mb-30">
-                <h6 class="mb-10">Clientes</h6>
-                <p class="text-sm mb-20">Abaixo você encontra seus clientes filtrados pelas datas selecionadas.</p>
+                <!-- Cabeçalho do card com controles à direita -->
+                <div class="d-flex justify-content-between align-items-center mb-10">
+                  <h6>Clientes</h6>
+                  <div class="d-flex align-items-center">
+                    <label for="pageSizeSelect" class="me-2 mb-0">Itens por página:</label>
+                    <select id="pageSizeSelect" class="form-select w-auto me-4">
+                      <option value="10" selected>10</option>
+                      <option value="25">25</option>
+                      <option value="50">50</option>
+                      <option value="100">100</option>
+                    </select>
+                    <button id="exportBtn" class="main-btn primary-btn btn-hover">
+                      Exportar CSV
+                    </button>
+                  </div>
+                </div>
+      
+                <p class="text-sm mb-20">
+                  Abaixo você encontra seus clientes filtrados pelas datas selecionadas.
+                </p>
+      
                 <div class="table-wrapper table-responsive">
                   <table class="table">
                     <thead>
@@ -337,7 +347,9 @@
                       </tr>
                     </thead>
                     <tbody id="clientesBody">
-                      <tr><td colspan="4" class="text-center">Carregando...</td></tr>
+                      <tr>
+                        <td colspan="4" class="text-center">Carregando...</td>
+                      </tr>
                     </tbody>
                   </table>
                   <div id="pagination" class="mt-3"></div>
@@ -346,7 +358,7 @@
             </div>
           </div>
         </div>
-      </section>
+      </section>      
       <!-- ================= Fim Seção Principal ================= -->
 
       <!-- ================= Footer ================= -->
