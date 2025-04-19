@@ -1,0 +1,15 @@
+/* passenger-step.css - Estilos específicos para a etapa de Passageiros */
+
+.passenger-box {
+  margin-top: 1rem;
+}
+
+/* Cabeçalho da etapa */
+.traveler-form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+/* Você pode adicionar aqui outros estilos específicos para os campos, se necessário */
