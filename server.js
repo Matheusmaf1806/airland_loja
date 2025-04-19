@@ -29,6 +29,9 @@ app.use(subdomainMiddleware);
 // 4) Assets públicos
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
+// 4.1) agora monte seu public
+app.use(express.static(path.join(__dirname, 'public')));
+
 // 5) Rota pública de login
 app.get('/agente/loginagente.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'agente', 'loginagente.html'));
@@ -40,9 +43,6 @@ app.use(
   authMiddleware,
   express.static(path.join(__dirname, 'agente'))
 );
-
-// 7) Outras páginas públicas
-app.use(express.static(path.join(__dirname)));
 
 // 8) Inicializa Supabase
 const supabaseUrl    = process.env.NEXT_PUBLIC_SUPABASE_URL;
